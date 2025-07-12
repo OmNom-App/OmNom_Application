@@ -1,0 +1,485 @@
+import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Plus, Minus, Clock, Tag, ArrowLeft, Shuffle, ExternalLink } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useAuthContext } from '../context/AuthContext';
+
+export function CreateRecipe() {
+  const { user } = useAuthContext();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  
+  // Check if this is a remix from another recipe
+  const originalRecipe = location.state?.originalRecipe;
+  const isRemix = !!originalRecipe;
+  
+  const [formData, setFormData] = useState({
+    title: isRemix ? `${originalRecipe?.title} (Remix)` : '',
+    prep_time: isRemix ? originalRecipe?.prep_time || 15 : 15,
+    cook_time: isRemix ? originalRecipe?.cook_time || 30 : 30,
+    difficulty: 'Easy' as 'Easy' | 'Medium' | 'Hard',
+    ingredients: isRemix ? [...(originalRecipe?.ingredients || [''])] : [''],
+    instructions: isRemix ? [...(originalRecipe?.instructions || [''])] : [''],
+    tags: isRemix ? [...(originalRecipe?.tags || ['']), 'remix'] : [''],
+    image_url: '',
+  });
+
+  // Test database connection
+  const testConnection = async () => {
+    setError('');
+    setSuccess('');
+    
+    try {
+      console.log('🔍 Testing database connection...');
+      
+      // Test 1: Check auth
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      if (authError) throw new Error(`Auth error: ${authError.message}`);
+      console.log('✅ Auth working, user:', authUser?.id);
+      
+      // Test 2: Try to query recipes table directly
+      const { data: recipes, error: recipeError } = await supabase
+        .from('recipes')
+        .select('id')
+        .limit(1);
+      
+      if (recipeError) throw new Error(`Recipe query error: ${recipeError.message}`);
+      console.log('✅ Recipe table accessible');
+      
+      // Test 3: Check if we can insert a test recipe (then delete it)
+      const testRecipe = {
+        title: 'TEST_RECIPE_DELETE_ME',
+        ingredients: ['test'],
+        instructions: ['test'],
+        prep_time: 1,
+        cook_time: 1,
+        difficulty: 'Easy' as const,
+        tags: ['test'],
+        author_id: authUser?.id
+      };
+      
+      console.log('🔄 Testing recipe insert...');
+      const { data: insertedRecipe, error: insertError } = await supabase
+        .from('recipes')
+        .insert(testRecipe)
+        .select()
+        .single();
+      
+      if (insertError) {
+        console.error('❌ Insert failed:', insertError);
+        throw new Error(`Insert error: ${insertError.message}`);
+      }
+      
+      console.log('✅ Recipe insert successful:', insertedRecipe.id);
+      
+      // Clean up test recipe
+      await supabase.from('recipes').delete().eq('id', insertedRecipe.id);
+      console.log('✅ Test recipe cleaned up');
+      
+      setSuccess('✅ Database connection and recipe creation working perfectly!');
+      
+    } catch (err: any) {
+      console.error('❌ Database test failed:', err);
+      setError(`Database test failed: ${err.message}`);
+    }
+  };
+
+  // Create recipe - SIMPLIFIED VERSION
+  const createRecipe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!user) {
+      setError('You must be logged in to create a recipe');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      console.log('🔄 Creating recipe...');
+      console.log('👤 User ID:', user.id);
+
+      // Prepare recipe data - NO PROFILE CHECK
+      const recipeData = {
+        title: formData.title.trim() || 'Untitled Recipe',
+        prep_time: formData.prep_time || 0,
+        cook_time: formData.cook_time || 0,
+        difficulty: formData.difficulty,
+        ingredients: formData.ingredients.filter(i => i.trim()).length > 0 
+          ? formData.ingredients.filter(i => i.trim()) 
+          : ['No ingredients listed'],
+        instructions: formData.instructions.filter(i => i.trim()).length > 0 
+          ? formData.instructions.filter(i => i.trim()) 
+          : ['No instructions provided'],
+        tags: formData.tags.filter(t => t.trim()),
+        image_url: formData.image_url.trim() || null,
+        author_id: user.id, // Direct user ID - no profile check
+        is_remix: isRemix,
+        original_recipe_id: isRemix ? originalRecipe?.id : null,
+      };
+
+      console.log('📝 Recipe data:', recipeData);
+
+      // Insert recipe directly - NO PROFILE OPERATIONS
+      console.log('🔄 Inserting recipe directly...');
+      const { data: recipe, error: recipeError } = await supabase
+        .from('recipes')
+        .insert(recipeData)
+        .select()
+        .single();
+
+      if (recipeError) {
+        console.error('❌ Recipe insert error:', recipeError);
+        throw new Error(`Recipe creation failed: ${recipeError.message}`);
+      }
+
+      console.log('✅ Recipe created successfully:', recipe);
+      setSuccess('Recipe created successfully!');
+
+      // Redirect to the new recipe
+      setTimeout(() => {
+        navigate(`/recipe/${recipe.id}`);
+      }, 1000);
+
+    } catch (err: any) {
+      console.error('❌ Recipe creation failed:', err);
+      setError(err.message || 'Failed to create recipe');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addField = (field: 'ingredients' | 'instructions' | 'tags') => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: [...prev[field], '']
+    }));
+  };
+
+  const removeField = (field: 'ingredients' | 'instructions' | 'tags', index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: prev[field].filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateField = (field: 'ingredients' | 'instructions' | 'tags', index: number, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: prev[field].map((item, i) => i === index ? value : item)
+    }));
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-pink-50 py-12">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl shadow-xl p-8 border border-orange-100"
+        >
+          {/* Header */}
+          <div className="flex items-center mb-8">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center space-x-2 text-gray-600 hover:text-orange-500 transition-colors mr-4"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span>Back</span>
+            </button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Create New Recipe</h1>
+              <p className="text-gray-600">
+                {isRemix 
+                  ? 'Create your own version of this amazing recipe' 
+                  : 'Share your culinary creation with the OmNom community'
+                }
+              </p>
+            </div>
+          </div>
+
+          {/* Remix Info */}
+          {isRemix && originalRecipe && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-8 bg-purple-50 border border-purple-200 rounded-xl p-6"
+            >
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
+                  <Shuffle className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-purple-900">Remixing Recipe</h3>
+                  <p className="text-purple-700 text-sm">Based on the original by {originalRecipe.profiles?.display_name}</p>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg p-4 border border-purple-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900">{originalRecipe.title}</h4>
+                    <p className="text-sm text-gray-600">
+                      {originalRecipe.prep_time + originalRecipe.cook_time} mins • {originalRecipe.difficulty}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/recipe/${originalRecipe.id}`)}
+                    className="flex items-center space-x-2 text-purple-600 hover:text-purple-700 transition-colors"
+                  >
+                    <span className="text-sm">View Original</span>
+                    <ExternalLink className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="mt-4 text-sm text-purple-700">
+                <p>💡 <strong>Tip:</strong> Make it your own! Modify ingredients, adjust cooking times, or add your special touch.</p>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Status Messages */}
+          {error && (
+            <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              <strong>Error:</strong> {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+              <strong>Success:</strong> {success}
+            </div>
+          )}
+
+          {/* Debug Section */}
+          <div className="mb-8 p-4 bg-gray-50 rounded-lg">
+            <h3 className="font-semibold mb-4">Database Connection Test</h3>
+            <button
+              type="button"
+              onClick={testConnection}
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
+            >
+              Test Database Connection
+            </button>
+          </div>
+
+          <form onSubmit={createRecipe} className="space-y-8">
+            {/* Basic Info */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Recipe Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  placeholder="Give your recipe a delicious name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Clock className="w-4 h-4 inline mr-1" />
+                  Prep Time (minutes)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.prep_time}
+                  onChange={(e) => setFormData(prev => ({ ...prev, prep_time: parseInt(e.target.value) || 0 }))}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Clock className="w-4 h-4 inline mr-1" />
+                  Cook Time (minutes)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.cook_time}
+                  onChange={(e) => setFormData(prev => ({ ...prev, cook_time: parseInt(e.target.value) || 0 }))}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Difficulty Level
+                </label>
+                <select
+                  value={formData.difficulty}
+                  onChange={(e) => setFormData(prev => ({ ...prev, difficulty: e.target.value as any }))}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
+                >
+                  <option value="Easy">Easy</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Hard">Hard</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Image URL (optional)
+                </label>
+                <input
+                  type="url"
+                  value={formData.image_url}
+                  onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  placeholder="https://example.com/image.jpg"
+                />
+              </div>
+            </div>
+
+            {/* Ingredients */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-4">
+                Ingredients *
+              </label>
+              <div className="space-y-3">
+                {formData.ingredients.map((ingredient, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      value={ingredient}
+                      onChange={(e) => updateField('ingredients', index, e.target.value)}
+                      className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
+                      placeholder={`Ingredient ${index + 1}`}
+                    />
+                    {formData.ingredients.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeField('ingredients', index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Minus className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => addField('ingredients')}
+                  className="flex items-center space-x-2 text-orange-500 hover:text-orange-700"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Ingredient</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-4">
+                Instructions *
+              </label>
+              <div className="space-y-3">
+                {formData.instructions.map((instruction, index) => (
+                  <div key={index} className="flex items-start space-x-2">
+                    <span className="text-sm text-gray-500 mt-3 min-w-[1.5rem]">{index + 1}.</span>
+                    <textarea
+                      value={instruction}
+                      onChange={(e) => updateField('instructions', index, e.target.value)}
+                      className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 min-h-[60px]"
+                      placeholder={`Step ${index + 1}`}
+                    />
+                    {formData.instructions.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeField('instructions', index)}
+                        className="text-red-500 hover:text-red-700 mt-2"
+                      >
+                        <Minus className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => addField('instructions')}
+                  className="flex items-center space-x-2 text-orange-500 hover:text-orange-700"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Step</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-4">
+                <Tag className="w-4 h-4 inline mr-1" />
+                Tags (optional)
+              </label>
+              <div className="space-y-3">
+                {formData.tags.map((tag, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <span className="text-gray-400">#</span>
+                    <input
+                      type="text"
+                      value={tag}
+                      onChange={(e) => updateField('tags', index, e.target.value)}
+                      className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
+                      placeholder={`Tag ${index + 1} (e.g., vegan, quick, dessert)`}
+                    />
+                    {formData.tags.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeField('tags', index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Minus className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => addField('tags')}
+                  className="flex items-center space-x-2 text-orange-500 hover:text-orange-700"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Tag</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Submit */}
+            <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => navigate('/explore')}
+                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                type="submit"
+                disabled={loading}
+                className="px-6 py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-lg hover:from-orange-600 hover:to-pink-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Creating Recipe...' : 'Create Recipe'}
+              </motion.button>
+            </div>
+          </form>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
