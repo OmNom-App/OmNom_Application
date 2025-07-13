@@ -395,24 +395,24 @@ export function Saved() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-pink-50 pt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Back Button */}
+        <motion.button
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          onClick={() => navigate('/explore')}
+          className="flex items-center space-x-2 text-gray-600 hover:text-orange-500 transition-colors mb-4"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          <span>Back to Explore</span>
+        </motion.button>
+
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-4">
-            <motion.button
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              onClick={() => navigate(-1)}
-              className="flex items-center space-x-2 text-gray-600 hover:text-orange-500 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span>Back</span>
-            </motion.button>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Saved Recipes</h1>
-              <p className="text-gray-600">
-                {filteredRecipes.length} of {savedRecipes.length} recipes
-              </p>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Saved Recipes</h1>
+            <p className="text-gray-600">
+              {filteredRecipes.length} of {savedRecipes.length} recipes
+            </p>
           </div>
 
           <div className="flex items-center space-x-2">

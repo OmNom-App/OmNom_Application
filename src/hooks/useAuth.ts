@@ -33,7 +33,7 @@ export function useAuth() {
         // Create or update profile
         await supabase.from('profiles').upsert({
           id: session.user.id,
-          display_name: session.user.email?.split('@')[0] || 'Chef',
+          display_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Chef',
         });
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
@@ -55,10 +55,15 @@ export function useAuth() {
     return { error };
   };
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, fullName?: string) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          full_name: fullName,
+        },
+      },
     });
     return { error };
   };

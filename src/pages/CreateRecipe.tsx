@@ -25,68 +25,15 @@ export function CreateRecipe() {
     ingredients: isRemix ? [...(originalRecipe?.ingredients || [''])] : [''],
     instructions: isRemix ? [...(originalRecipe?.instructions || [''])] : [''],
     tags: isRemix ? [...(originalRecipe?.tags || ['']), 'remix'] : [''],
+    cuisine: isRemix ? originalRecipe?.cuisine || '' : '',
+    dietary: isRemix ? originalRecipe?.dietary || [] : [],
     image_url: '',
   });
 
-  // Test database connection
-  const testConnection = async () => {
-    setError('');
-    setSuccess('');
-    
-    try {
-      console.log('🔍 Testing database connection...');
-      
-      // Test 1: Check auth
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      if (authError) throw new Error(`Auth error: ${authError.message}`);
-      console.log('✅ Auth working, user:', authUser?.id);
-      
-      // Test 2: Try to query recipes table directly
-      const { data: recipes, error: recipeError } = await supabase
-        .from('recipes')
-        .select('id')
-        .limit(1);
-      
-      if (recipeError) throw new Error(`Recipe query error: ${recipeError.message}`);
-      console.log('✅ Recipe table accessible');
-      
-      // Test 3: Check if we can insert a test recipe (then delete it)
-      const testRecipe = {
-        title: 'TEST_RECIPE_DELETE_ME',
-        ingredients: ['test'],
-        instructions: ['test'],
-        prep_time: 1,
-        cook_time: 1,
-        difficulty: 'Easy' as const,
-        tags: ['test'],
-        author_id: authUser?.id
-      };
-      
-      console.log('🔄 Testing recipe insert...');
-      const { data: insertedRecipe, error: insertError } = await supabase
-        .from('recipes')
-        .insert(testRecipe)
-        .select()
-        .single();
-      
-      if (insertError) {
-        console.error('❌ Insert failed:', insertError);
-        throw new Error(`Insert error: ${insertError.message}`);
-      }
-      
-      console.log('✅ Recipe insert successful:', insertedRecipe.id);
-      
-      // Clean up test recipe
-      await supabase.from('recipes').delete().eq('id', insertedRecipe.id);
-      console.log('✅ Test recipe cleaned up');
-      
-      setSuccess('✅ Database connection and recipe creation working perfectly!');
-      
-    } catch (err: any) {
-      console.error('❌ Database test failed:', err);
-      setError(`Database test failed: ${err.message}`);
-    }
-  };
+  const cuisineOptions = ['italian', 'mexican', 'asian', 'indian', 'mediterranean', 'american'];
+  const dietaryOptions = ['vegan', 'vegetarian', 'gluten-free', 'dairy-free', 'keto', 'paleo'];
+
+
 
   // Create recipe - SIMPLIFIED VERSION
   const createRecipe = async (e: React.FormEvent) => {
@@ -118,6 +65,8 @@ export function CreateRecipe() {
           ? formData.instructions.filter(i => i.trim()) 
           : ['No instructions provided'],
         tags: formData.tags.filter(t => t.trim()),
+        cuisine: formData.cuisine,
+        dietary: formData.dietary,
         image_url: formData.image_url.trim() || null,
         author_id: user.id, // Direct user ID - no profile check
         is_remix: isRemix,
@@ -176,6 +125,15 @@ export function CreateRecipe() {
     }));
   };
 
+  const toggleDietaryRestriction = (diet: string) => {
+    setFormData(prev => ({
+      ...prev,
+      dietary: prev.dietary.includes(diet)
+        ? prev.dietary.filter((d: string) => d !== diet)
+        : [...prev.dietary, diet]
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-pink-50 py-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -185,10 +143,10 @@ export function CreateRecipe() {
           className="bg-white rounded-2xl shadow-xl p-8 border border-orange-100"
         >
           {/* Header */}
-          <div className="flex items-center mb-8">
+          <div className="mb-8">
             <button
               onClick={() => navigate(-1)}
-              className="flex items-center space-x-2 text-gray-600 hover:text-orange-500 transition-colors mr-4"
+              className="flex items-center space-x-2 text-gray-600 hover:text-orange-500 transition-colors mb-4"
             >
               <ArrowLeft className="w-5 h-5" />
               <span>Back</span>
@@ -259,17 +217,7 @@ export function CreateRecipe() {
             </div>
           )}
 
-          {/* Debug Section */}
-          <div className="mb-8 p-4 bg-gray-50 rounded-lg">
-            <h3 className="font-semibold mb-4">Database Connection Test</h3>
-            <button
-              type="button"
-              onClick={testConnection}
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
-            >
-              Test Database Connection
-            </button>
-          </div>
+
 
           <form onSubmit={createRecipe} className="space-y-8">
             {/* Basic Info */}
@@ -329,6 +277,43 @@ export function CreateRecipe() {
                   <option value="Medium">Medium</option>
                   <option value="Hard">Hard</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cuisine Type
+                </label>
+                <select
+                  value={formData.cuisine}
+                  onChange={(e) => setFormData(prev => ({ ...prev, cuisine: e.target.value }))}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
+                >
+                  <option value="">Select cuisine type</option>
+                  {cuisineOptions.map((cuisine) => (
+                    <option key={cuisine} value={cuisine} className="capitalize">
+                      {cuisine.charAt(0).toUpperCase() + cuisine.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Dietary Restrictions
+                </label>
+                <div className="space-y-2">
+                  {dietaryOptions.map((diet) => (
+                    <label key={diet} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.dietary.includes(diet)}
+                        onChange={() => toggleDietaryRestriction(diet)}
+                        className="rounded border-gray-300 text-orange-500 focus:ring-orange-300"
+                      />
+                      <span className="ml-2 text-sm text-gray-700 capitalize">{diet}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               <div>
