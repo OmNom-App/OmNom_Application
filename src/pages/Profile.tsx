@@ -17,13 +17,16 @@ import {
   Settings,
   Share2,
   Upload,
-  X
+  X,
+  Users
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthContext } from '../context/AuthContext';
 
 import { RecipeCard } from '../components/RecipeCard';
 import { Modal } from '../components/Modal';
+import { FollowButton } from '../components/FollowButton';
+import { FollowedUsers } from '../components/FollowedUsers';
 import { format } from 'date-fns';
 
 interface Profile {
@@ -80,6 +83,8 @@ export function Profile() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
 
   const ITEMS_PER_PAGE = 12;
   const profileId = userId || user?.id;
@@ -110,6 +115,21 @@ export function Profile() {
 
       if (error) throw error;
       setProfile(data);
+
+      // Load follower and following counts
+      const [followerResult, followingResult] = await Promise.all([
+        supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('following_id', profileId),
+        supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('follower_id', profileId)
+      ]);
+
+      setFollowerCount(followerResult.count || 0);
+      setFollowingCount(followingResult.count || 0);
     } catch (err: any) {
       console.error('Error loading profile:', err);
       setError('Failed to load profile');
@@ -484,6 +504,7 @@ export function Profile() {
                   {profile.display_name}
                 </h1>
                 <div className="flex items-center space-x-2">
+                  <FollowButton targetUserId={profile.id} />
                   <button
                     onClick={shareProfile}
                     className="flex items-center space-x-2 text-gray-600 hover:text-orange-500 transition-colors"
@@ -516,10 +537,19 @@ export function Profile() {
                   <ChefHat className="w-4 h-4 mr-2" />
                   <span>{createdRecipes.length + remixedRecipes.length} recipes</span>
                 </div>
+                <div className="flex items-center">
+                  <Users className="w-4 h-4 mr-2" />
+                  <span>{followerCount} followers • {followingCount} following</span>
+                </div>
               </div>
             </div>
           </div>
         </motion.div>
+
+        {/* Followed Users Section (only for own profile) */}
+        {isOwnProfile && (
+          <FollowedUsers userId={profile.id} className="mb-8" />
+        )}
 
         {/* Recipe Collections */}
         <motion.div

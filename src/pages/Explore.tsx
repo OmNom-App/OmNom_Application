@@ -163,15 +163,36 @@ export function Explore() {
         query = query.order('cook_time', { ascending: true });
         break;
       case 'popular':
-        // For now, order by created_at. In a real app, you'd order by like count
+        // For popular sorting, we'll fetch all recipes and sort by like count
+        // This is a temporary solution - in production, you'd want a more efficient approach
         query = query.order('created_at', { ascending: false });
         break;
     }
 
     console.log('🔍 Executing query with range:', currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE - 1);
     
-    const { data, error } = await query
+    let { data, error } = await query
       .range(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE - 1);
+
+    // If sorting by popular, fetch like counts and sort
+    if (sortBy === 'popular' && data && data.length > 0) {
+      const recipesWithLikes = await Promise.all(
+        data.map(async (recipe) => {
+          const { count: likeCount } = await supabase
+            .from('likes')
+            .select('*', { count: 'exact', head: true })
+            .eq('recipe_id', recipe.id);
+          
+          return {
+            ...recipe,
+            like_count: likeCount || 0
+          };
+        })
+      );
+      
+      // Sort by like count (most to least)
+      data = recipesWithLikes.sort((a, b) => (b.like_count || 0) - (a.like_count || 0));
+    }
 
     if (error) {
       console.error('❌ Error loading recipes:', error);
