@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Plus, Minus, Clock, Tag, ArrowLeft, Save, Trash2 } from 'lucide-react';
+import { Plus, Minus, Clock, Tag, ArrowLeft, Save, Trash2, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthContext } from '../context/AuthContext';
 import { useRecipeAccess } from '../hooks/useRecipeAccess';
+import { Modal } from '../components/Modal';
 
 export function EditRecipe() {
   const { id } = useParams<{ id: string }>();
@@ -12,6 +13,7 @@ export function EditRecipe() {
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
@@ -111,14 +113,15 @@ export function EditRecipe() {
   const deleteRecipe = async () => {
     if (!user || !id) return;
     
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${formData.title}"?\n\nThis action cannot be undone.`
-    );
-    
-    if (!confirmed) return;
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!user || !id) return;
 
     setDeleting(true);
     setError('');
+    setShowDeleteModal(false);
 
     try {
       // RLS will automatically ensure only the author can delete
@@ -225,32 +228,37 @@ export function EditRecipe() {
           className="bg-white rounded-2xl shadow-xl p-8 border border-orange-100"
         >
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center">
+          <div className="mb-8">
+            {/* Back to Recipe Button */}
+            <div className="mb-4">
               <button
                 onClick={() => navigate(`/recipe/${id}`)}
-                className="flex items-center space-x-2 text-gray-600 hover:text-orange-500 transition-colors mr-4"
+                className="flex items-center space-x-2 text-gray-600 hover:text-orange-500 transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" />
                 <span>Back to Recipe</span>
               </button>
+            </div>
+
+            {/* Title and Delete Button */}
+            <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">Edit Recipe</h1>
                 <p className="text-gray-600">Make changes to your recipe</p>
               </div>
-            </div>
 
-            {/* Delete Button */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={deleteRecipe}
-              disabled={deleting}
-              className="flex items-center space-x-2 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>{deleting ? 'Deleting...' : 'Delete Recipe'}</span>
-            </motion.button>
+              {/* Delete Button */}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={deleteRecipe}
+                disabled={deleting}
+                className="flex items-center space-x-2 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{deleting ? 'Deleting...' : 'Delete Recipe'}</span>
+              </motion.button>
+            </div>
           </div>
 
           {/* Status Messages */}
@@ -493,6 +501,45 @@ export function EditRecipe() {
           </form>
         </motion.div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Recipe"
+        showCloseButton={true}
+        className="max-w-md"
+      >
+        <div className="text-center">
+          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+            <AlertTriangle className="h-6 w-6 text-red-600" />
+          </div>
+          
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Delete "{formData.title}"?
+          </h3>
+          
+          <p className="text-sm text-gray-500 mb-6">
+            This action cannot be undone. The recipe will be permanently deleted.
+          </p>
+          
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setShowDeleteModal(false)}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {deleting ? 'Deleting...' : 'Delete Recipe'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
