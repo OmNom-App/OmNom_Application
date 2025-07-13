@@ -27,22 +27,36 @@ export function Navbar() {
     // Close mobile menu immediately
     setIsMenuOpen(false);
     
+    // Add timeout to prevent hanging
+    const logoutTimeout = setTimeout(() => {
+      console.log('⚠️ Logout timeout reached, forcing redirect');
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/';
+    }, 5000); // 5 second timeout
+    
     try {
       const { error } = await signOut();
       
+      clearTimeout(logoutTimeout);
+      
       if (error) {
         console.error('❌ Sign out failed:', error);
-        // Even on error, redirect to home
+        // Force clear any local state and redirect
         window.location.href = '/';
         return;
       }
       
       console.log('✅ Sign out successful');
-      // The signOut function in useAuth already handles redirect
+      // Navigate to home page after successful logout
+      navigate('/');
       
     } catch (err) {
+      clearTimeout(logoutTimeout);
       console.error('❌ Unexpected error during logout:', err);
-      // Even on error, redirect to home
+      // Force redirect to home and clear any cached data
+      localStorage.clear();
+      sessionStorage.clear();
       window.location.href = '/';
     }
   };

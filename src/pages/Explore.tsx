@@ -47,7 +47,7 @@ interface Filters {
 }
 
 export function Explore() {
-  const { user } = useAuthContext();
+  const { user, loading: authLoading } = useAuthContext();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -84,12 +84,32 @@ export function Explore() {
     }
   }, [searchParams]);
 
+  // Only load recipes when auth is not loading and we have stable dependencies
   useEffect(() => {
-    loadRecipes(true);
-  }, [sortBy, filters, searchQuery]);
+    if (!authLoading) {
+      console.log('🔍 Explore: Auth loading finished, loading recipes...');
+      loadRecipes(true);
+    }
+  }, [sortBy, filters, searchQuery, authLoading]);
+
+  // Debug auth state changes
+  useEffect(() => {
+    console.log('🔍 Explore: Auth state changed', { 
+      user: user?.email, 
+      authLoading, 
+      recipesCount: recipes.length 
+    });
+  }, [user, authLoading, recipes.length]);
 
   const loadRecipes = async (reset = false) => {
     console.log('🔍 Loading recipes...', { reset, page, searchQuery, filters, sortBy });
+    
+    // Don't reload if we already have recipes and auth is just refreshing
+    if (!reset && recipes.length > 0 && authLoading) {
+      console.log('🔍 Skipping recipe reload during auth refresh');
+      return;
+    }
+    
     setLoading(true);
     const currentPage = reset ? 0 : page;
     

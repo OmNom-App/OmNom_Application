@@ -171,7 +171,7 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         whileHover={{ y: -5, transition: { duration: 0.2 } }}
-        className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-xl transition-all duration-300 cursor-pointer"
+        className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 hover:shadow-xl transition-all duration-300 cursor-pointer h-88 flex flex-col"
         onClick={handleCardClick}
       >
         <div className="relative">
@@ -198,24 +198,29 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
           </div>
         </div>
 
-        <div className="p-4">
-          <h3 className="font-semibold text-lg text-gray-900 mb-2 line-clamp-2">
+        <div className="p-4 flex-1 flex flex-col">
+          <h3 className="font-semibold text-lg text-gray-900 mb-2 min-h-[3.5rem] overflow-hidden" style={{
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            textOverflow: 'ellipsis'
+          }}>
             {recipe.title}
           </h3>
           
-          <div className="flex items-center text-sm text-gray-600 mb-2">
+          <div className="flex items-center text-sm text-gray-600 mb-3">
             <Users className="w-4 h-4 mr-1" />
             <span>{recipe.profiles?.display_name || 'Chef'}</span>
           </div>
 
-          <div className="flex items-center text-sm text-gray-600 mb-3">
+          <div className="flex items-center text-sm text-gray-600 mb-4">
             <Clock className="w-4 h-4 mr-1" />
             <span>{totalTime} mins</span>
             <Star className="w-4 h-4 ml-4 mr-1" />
             <span>{recipe.ingredients.length} ingredients</span>
           </div>
 
-          <div className="flex flex-wrap gap-1 mb-3">
+          <div className="flex flex-wrap gap-1 mb-4">
             {recipe.tags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
@@ -229,7 +234,7 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
             )}
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mt-auto pt-2">
             <div className="flex items-center space-x-2">
               <motion.button
                 whileHover={{ scale: 1.1 }}
