@@ -85,6 +85,8 @@ export function Profile() {
   const profileId = userId || user?.id;
   const isOwnProfile = !userId || userId === user?.id;
 
+  // Removed periodic session check to prevent constant re-initialization
+
   useEffect(() => {
     if (profileId) {
       loadProfile();
@@ -294,19 +296,20 @@ export function Profile() {
     setError('');
 
     try {
-      // Upload file to Supabase storage
+      console.log('🔄 Starting avatar upload for user:', user.id);
+
+      // Prepare file path
       const fileExt = avatarFile.name.split('.').pop();
       const fileName = `${user.id}-${Date.now()}.${fileExt}`;
       const filePath = fileName;
 
+      // Upload file to storage
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, avatarFile);
 
       if (uploadError) {
-        console.error('Supabase upload error:', uploadError);
-        setError('Failed to upload avatar: ' + uploadError.message);
-        return;
+        throw new Error('Failed to upload avatar: ' + uploadError.message);
       }
 
       // Get public URL
@@ -319,7 +322,9 @@ export function Profile() {
         return;
       }
 
-      // Update profile with new avatar URL
+      console.log('✅ Got public URL:', publicUrl);
+
+      // Update profile in database
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ 
@@ -329,10 +334,10 @@ export function Profile() {
         .eq('id', user.id);
 
       if (updateError) {
-        console.error('Supabase update profile error:', updateError);
-        setError('Failed to update profile: ' + updateError.message);
-        return;
+        throw new Error('Failed to update profile: ' + updateError.message);
       }
+
+      console.log('✅ Profile updated successfully');
 
       // Update local state only if everything succeeded
       setProfile(prev => prev ? { ...prev, avatar_url: publicUrl } : prev);
@@ -341,7 +346,7 @@ export function Profile() {
       setAvatarPreview(null);
     } catch (err: any) {
       console.error('Error uploading avatar:', err);
-      setError('Failed to upload avatar. Please check your file and try again.');
+      setError('Failed to upload avatar: ' + (err.message || 'Unknown error'));
     } finally {
       setUploadingAvatar(false);
     }

@@ -116,6 +116,30 @@ export function Saved() {
     setLoading(true);
     
     try {
+      console.log('Loading saved recipes for user:', user.id);
+      
+      // First, let's check if the user has any saves at all
+      const { data: savesCheck, error: savesError } = await supabase
+        .from('saves')
+        .select('id, recipe_id')
+        .eq('user_id', user.id);
+      
+      if (savesError) {
+        console.error('Error checking saves:', savesError);
+        throw savesError;
+      }
+      
+      console.log('User saves found:', savesCheck?.length || 0);
+      
+              if (!savesCheck || savesCheck.length === 0) {
+          console.log('No saves found for user');
+          setSavedRecipes([]);
+          setLoading(false);
+          return;
+        }
+
+        console.log('Found saves, loading recipe details...');
+
       const { data, error } = await supabase
         .from('saves')
         .select(`
@@ -134,11 +158,7 @@ export function Saved() {
             image_url,
             author_id,
             is_remix,
-            created_at,
-            profiles:author_id (
-              display_name,
-              avatar_url
-            )
+            created_at
           )
         `)
         .eq('user_id', user.id)
@@ -146,9 +166,68 @@ export function Saved() {
 
       if (error) throw error;
 
-      const validSaves = (data || []).filter(save => save.recipes);
-      setSavedRecipes(validSaves);
-      calculateStats(validSaves);
+      console.log('Raw data from Supabase:', data);
+
+      const validSaves = (data || [])
+        .filter(save => save.recipes)
+        .map(save => {
+          // Handle both array and single object cases
+          const recipe = Array.isArray(save.recipes) ? save.recipes[0] : save.recipes;
+          
+          if (!recipe) {
+            console.warn('No recipe found for save:', save);
+            return null;
+          }
+          
+          console.log('Recipe author_id:', recipe.author_id);
+          
+          return {
+            id: save.id,
+            recipe_id: save.recipe_id,
+            created_at: save.created_at,
+            recipes: {
+              id: recipe.id,
+              title: recipe.title,
+              ingredients: recipe.ingredients,
+              instructions: recipe.instructions,
+              prep_time: recipe.prep_time,
+              cook_time: recipe.cook_time,
+              difficulty: recipe.difficulty,
+              tags: recipe.tags,
+              image_url: recipe.image_url,
+              author_id: recipe.author_id,
+              is_remix: recipe.is_remix,
+              created_at: recipe.created_at,
+              profiles: undefined // We'll fetch this separately
+            }
+          };
+        })
+        .filter(Boolean) as SavedRecipe[];
+      
+      console.log('Processed saves:', validSaves);
+      
+      // Fetch profiles for each recipe
+      const savesWithProfiles = await Promise.all(
+        validSaves.map(async (save) => {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('display_name, avatar_url')
+            .eq('id', save.recipes.author_id)
+            .single();
+          
+          return {
+            ...save,
+            recipes: {
+              ...save.recipes,
+              profiles: profileData || undefined
+            }
+          };
+        })
+      );
+      
+      console.log('Saves with profiles:', savesWithProfiles);
+      setSavedRecipes(savesWithProfiles);
+      calculateStats(savesWithProfiles);
     } catch (error) {
       console.error('Error loading saved recipes:', error);
     } finally {
@@ -425,18 +504,6 @@ export function Saved() {
               <BarChart3 className="w-5 h-5" />
               <span>Stats</span>
             </button>
-            
-            {savedRecipes.length > 0 && (
-              <button
-                onClick={() => setBulkMode(!bulkMode)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                  bulkMode ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <CheckSquare className="w-5 h-5" />
-                <span>Select</span>
-              </button>
-            )}
           </div>
         </div>
 
@@ -751,6 +818,21 @@ export function Saved() {
               )}
             </div>
 
+            {/* Select Button - Moved above recipe list for better accessibility */}
+            {savedRecipes.length > 0 && (
+              <div className="flex justify-end mb-4">
+                <button
+                  onClick={() => setBulkMode(!bulkMode)}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                    bulkMode ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <CheckSquare className="w-5 h-5" />
+                  <span>Select Recipes</span>
+                </button>
+              </div>
+            )}
+
             {/* Recipe Grid/List */}
             <div className="pb-20">
               {filteredRecipes.length === 0 ? (
@@ -772,7 +854,7 @@ export function Saved() {
                       {bulkMode && (
                         <button
                           onClick={() => toggleRecipeSelection(save.recipe_id)}
-                          className="absolute top-2 left-2 z-10 bg-white rounded-full p-1 shadow-md"
+                          className="absolute top-2 left-2 z-20 bg-white rounded-full p-1 shadow-md border border-gray-200"
                         >
                           {selectedRecipes.has(save.recipe_id) ? (
                             <CheckSquare className="w-5 h-5 text-blue-500" />
@@ -781,19 +863,21 @@ export function Saved() {
                           )}
                         </button>
                       )}
-                      <RecipeCard 
-                        recipe={save.recipes}
-                        onShare={() => {
-                          if (navigator.share) {
-                            navigator.share({
-                              title: save.recipes.title,
-                              url: `${window.location.origin}/recipe/${save.recipes.id}`
-                            });
-                          }
-                        }}
-                      />
-                      <div className="absolute bottom-2 right-2 bg-white rounded-full px-2 py-1 text-xs text-gray-500 shadow-sm">
-                        Saved {format(new Date(save.created_at), 'MMM d')}
+                      <div className="relative">
+                        <RecipeCard 
+                          recipe={save.recipes}
+                          onShare={() => {
+                            if (navigator.share) {
+                              navigator.share({
+                                title: save.recipes.title,
+                                url: `${window.location.origin}/recipe/${save.recipes.id}`
+                              });
+                            }
+                          }}
+                        />
+                        <div className="absolute bottom-4 right-4 bg-white/95 backdrop-blur-sm rounded-full px-3 py-1.5 text-xs font-medium text-gray-700 shadow-md border border-gray-200 z-10">
+                          Saved {format(new Date(save.created_at), 'MMM d')}
+                        </div>
                       </div>
                     </div>
                   ))}

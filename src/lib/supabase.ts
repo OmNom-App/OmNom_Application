@@ -7,23 +7,78 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
+// Create Supabase client with standard configuration
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  db: {
-    schema: 'public'
-  },
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce'
+    detectSessionInUrl: false,
   },
-  global: {
-    headers: {
-      'x-client-info': 'omnom-recipe-app',
-      'x-application-name': 'omnom-recipe-app'
-    }
-  }
 });
+
+// Simple session and user getters
+export const getSession = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session;
+};
+
+export const getCurrentUser = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+};
+
+// Robust session refresh for tab switching issues
+export const refreshSession = async () => {
+  try {
+    console.log('🔄 Refreshing session...');
+    
+    // Force refresh the session
+    const { data: { session }, error } = await supabase.auth.refreshSession();
+    
+    if (error) {
+      console.error('❌ Session refresh error:', error);
+      return null;
+    }
+    
+    if (session) {
+      console.log('✅ Session refreshed successfully');
+      return session;
+    } else {
+      console.log('❌ No session after refresh');
+      return null;
+    }
+  } catch (error) {
+    console.error('❌ Unexpected error during session refresh:', error);
+    return null;
+  }
+};
+
+// Force session recovery for stuck states
+export const forceSessionRecovery = async () => {
+  try {
+    console.log('🔄 Force session recovery...');
+    
+    // Clear any stuck state
+    await supabase.auth.signOut();
+    
+    // Wait a moment
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Try to get session again
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session) {
+      console.log('✅ Session recovery successful');
+      return session;
+    } else {
+      console.log('❌ No session after recovery');
+      return null;
+    }
+  } catch (error) {
+    console.error('❌ Session recovery failed:', error);
+    return null;
+  }
+};
 
 export type Database = {
   public: {
