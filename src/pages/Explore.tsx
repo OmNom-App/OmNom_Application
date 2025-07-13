@@ -15,7 +15,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthContext } from '../context/AuthContext';
-import { UnauthorizedAccessAlert } from '../components/UnauthorizedAccessAlert';
+import { AccessDeniedAlert } from '../components/AccessDeniedAlert';
+
 import { RecipeCard } from '../components/RecipeCard';
 
 interface Recipe {
@@ -70,11 +71,7 @@ export function Explore() {
   }, [sortBy, filters, searchQuery]);
 
   const loadRecipes = async (reset = false) => {
-    if (!user) {
-      console.error('❌ No authenticated user found');
-      return;
-    }
-    
+    console.log('🔍 Loading recipes...', { reset, page, searchQuery, filters, sortBy });
     setLoading(true);
     const currentPage = reset ? 0 : page;
     
@@ -134,12 +131,15 @@ export function Explore() {
         break;
     }
 
+    console.log('🔍 Executing query with range:', currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE - 1);
+    
     const { data, error } = await query
       .range(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE - 1);
 
     if (error) {
-      console.error('Error loading recipes:', error);
+      console.error('❌ Error loading recipes:', error);
     } else {
+      console.log('✅ Recipes loaded:', data?.length || 0, 'recipes');
       if (reset) {
         setRecipes(data || []);
         setPage(0);
@@ -219,14 +219,24 @@ export function Explore() {
   const dietaryOptions = ['vegan', 'vegetarian', 'gluten-free', 'dairy-free', 'keto', 'paleo'];
   const cuisineOptions = ['italian', 'mexican', 'asian', 'indian', 'mediterranean', 'american'];
 
-  return (
+    return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-pink-50 pt-20">
-      <UnauthorizedAccessAlert />
+      <AccessDeniedAlert />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">Explore Recipes</h1>
-          <p className="text-gray-600">Discover amazing recipes from our community</p>
+          <p className="text-gray-600">
+            {user ? 'Discover amazing recipes from our community' : 'Browse recipes and sign up to save your favorites'}
+          </p>
+          
+          {!user && (
+            <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <p className="text-orange-800 text-sm">
+                💡 <strong>Tip:</strong> Sign up to like, save, and create your own recipes!
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Search and Controls */}

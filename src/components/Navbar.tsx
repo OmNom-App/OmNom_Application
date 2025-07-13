@@ -23,7 +23,7 @@ export function Navbar() {
   const handleSignOut = async () => {
     console.log('🔄 Logout button clicked');
     
-    // Force immediate UI update by clearing auth context
+    // Close mobile menu immediately
     setIsMenuOpen(false);
     
     try {
@@ -31,17 +31,18 @@ export function Navbar() {
       
       if (error) {
         console.error('❌ Sign out failed:', error);
+        // Even on error, redirect to home
+        window.location.href = '/';
+        return;
       }
       
-      console.log('✅ Sign out successful, redirecting...');
-      
-      // Force page reload to ensure complete state reset
-      window.location.reload();
+      console.log('✅ Sign out successful');
+      // The signOut function in useAuth already handles redirect
       
     } catch (err) {
       console.error('❌ Unexpected error during logout:', err);
-      // Even on error, force reload to clear state
-      window.location.reload();
+      // Even on error, redirect to home
+      window.location.href = '/';
     }
   };
 
@@ -120,7 +121,7 @@ export function Navbar() {
                 </Link>
                 <Link to="/profile">
                   <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                    <User className="w-6 h-6 text-gray-600 hover:text-orange-500 transition-colors" title="Profile" />
+                    <User className="w-6 h-6 text-gray-600 hover:text-orange-500 transition-colors" />
                   </motion.div>
                 </Link>
                 <motion.button
