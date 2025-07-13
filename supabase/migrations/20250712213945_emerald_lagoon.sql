@@ -23,6 +23,7 @@
 DROP POLICY IF EXISTS "Recipes are viewable by everyone" ON recipes;
 DROP POLICY IF EXISTS "Users can view all recipes" ON recipes;
 DROP POLICY IF EXISTS "Public recipes are viewable by everyone" ON recipes;
+DROP POLICY IF EXISTS "Enable read access for all users" ON recipes;
 
 -- Create new SELECT policy that allows proper access
 CREATE POLICY "Enable read access for all users" ON recipes

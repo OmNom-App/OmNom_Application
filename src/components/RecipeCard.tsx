@@ -85,7 +85,13 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
     e.stopPropagation();
     
     if (!user) {
-      navigate('/login');
+      // Show a more informative message
+      const shouldSignUp = window.confirm(
+        'Sign up to like recipes and save your favorites!'
+      );
+      if (shouldSignUp) {
+        navigate('/signup');
+      }
       return;
     }
 
@@ -112,7 +118,13 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
     e.stopPropagation();
     
     if (!user) {
-      navigate('/login');
+      // Show a more informative message
+      const shouldSignUp = window.confirm(
+        'Sign up to save recipes and create your own collection!'
+      );
+      if (shouldSignUp) {
+        navigate('/signup');
+      }
       return;
     }
 

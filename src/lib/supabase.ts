@@ -21,48 +21,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     headers: {
       'x-client-info': 'omnom-recipe-app',
       'x-application-name': 'omnom-recipe-app'
-    },
-    fetch: (url, options = {}) => {
-      return fetch(url, {
-        ...options,
-        signal: AbortSignal.timeout(10000) // 10 second timeout
-      });
-    }
-  },
-  realtime: {
-    enabled: false,
-    params: {
-      eventsPerSecond: 10
     }
   }
 });
-
-// Add connection health check
-export const checkSupabaseConnection = async () => {
-  try {
-    console.log('🔍 Testing Supabase connection...');
-    const start = performance.now();
-    
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('count')
-      .limit(1)
-      .single();
-    
-    const duration = performance.now() - start;
-    console.log(`✅ Supabase connection test completed in ${duration.toFixed(2)}ms`);
-    
-    if (error && error.code !== 'PGRST116') {
-      console.error('❌ Supabase connection error:', error);
-      return { connected: false, error, duration };
-    }
-    
-    return { connected: true, duration };
-  } catch (error) {
-    console.error('❌ Supabase connection failed:', error);
-    return { connected: false, error, duration: 0 };
-  }
-};
 
 export type Database = {
   public: {

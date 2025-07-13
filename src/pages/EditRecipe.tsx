@@ -4,16 +4,19 @@ import { motion } from 'framer-motion';
 import { Plus, Minus, Clock, Tag, ArrowLeft, Save, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthContext } from '../context/AuthContext';
+import { useRecipeAccess } from '../hooks/useRecipeAccess';
 
 export function EditRecipe() {
   const { id } = useParams<{ id: string }>();
-  const { user, loading: authLoading } = useAuthContext();
+  const { user } = useAuthContext();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  
+  // Use the new access control hook with ownership requirement
+  const { loading, error: accessError, recipe, isOwner } = useRecipeAccess(true);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -26,101 +29,9 @@ export function EditRecipe() {
     image_url: '',
   });
 
-  // Immediate authentication check
+  // Populate form when recipe is loaded
   useEffect(() => {
-    if (!authLoading && !user) {
-      console.log('🚫 No authenticated user, redirecting to login');
-      navigate('/login', { replace: true });
-      return;
-    }
-
-    if (!authLoading && user && id) {
-      verifyRecipeOwnership();
-    }
-  }, [id, user, authLoading, navigate]);
-
-  const logUnauthorizedAccess = (details: any) => {
-    console.warn('🚨 UNAUTHORIZED RECIPE ACCESS ATTEMPT:', {
-      timestamp: new Date().toISOString(),
-      userId: user?.id,
-      userEmail: user?.email,
-      recipeId: id,
-      action: 'EDIT_ATTEMPT',
-      userAgent: navigator.userAgent,
-      url: window.location.href,
-      ...details
-    });
-    
-    // In production, send this to your security monitoring service
-    // Example: sendSecurityAlert({ userId: user.id, action: 'unauthorized_edit', recipeId: id });
-  };
-
-  const verifyRecipeOwnership = async () => {
-    if (!id || !user) {
-      console.log('🚫 Missing recipe ID or user');
-      setError('Recipe not found or invalid URL.');
-      setLoading(false);
-      return;
-    }
-
-    console.log('🔍 Verifying recipe ownership:', { recipeId: id, userId: user.id });
-    setLoading(true);
-    setError('');
-
-    try {
-      // Step 1: First try a simple query without author filter to test basic access
-      console.log('📡 Testing basic recipe access...');
-      
-      const queryPromise = supabase
-        .from('recipes')
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Query timeout')), 10000);
-      });
-      
-      const { data: recipe, error: fetchError } = await Promise.race([
-        queryPromise,
-        timeoutPromise
-      ]);
-
-      console.log('📝 Recipe fetch result:', { 
-        hasRecipe: !!recipe,
-        recipeAuthor: recipe?.author_id
-      });
-
-      if (fetchError) {
-        console.error('❌ Database error:', fetchError);
-        setError(`Failed to load recipe: ${fetchError.message}`);
-        setLoading(false);
-        return;
-      }
-
-      if (!recipe) {
-        console.log('🚫 Recipe not found');
-        setError('Recipe not found.');
-        setLoading(false);
-        return;
-      }
-
-      // Step 3: Check if user is the author
-      if (recipe.author_id !== user.id) {
-        console.log('🚫 User is not the recipe owner');
-        
-        logUnauthorizedAccess({
-          recipeAuthor: recipe.author_id,
-          attemptedBy: user.id,
-          recipeTitle: recipe.title
-        });
-        
-        redirectWithError('You can only modify recipes you have created');
-        return;
-      }
-
-      // Step 4: User is authorized - populate form
-      console.log('✅ User authorized to edit recipe');
+    if (recipe) {
       setFormData({
         title: recipe.title || '',
         prep_time: recipe.prep_time || 15,
@@ -131,20 +42,8 @@ export function EditRecipe() {
         tags: recipe.tags && recipe.tags.length > 0 ? recipe.tags : [''],
         image_url: recipe.image_url || '',
       });
-
-    } catch (err: any) {
-      setError(`An error occurred: ${err.message}`);
-      setLoading(false);
-    } finally {
-      setLoading(false);
     }
-  };
-
-  const redirectWithError = (message: string) => {
-    console.log('🔄 Redirecting with error:', message);
-    sessionStorage.setItem('unauthorizedAccessMessage', message);
-    navigate('/explore', { replace: true });
-  };
+  }, [recipe]);
 
   const updateRecipe = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,9 +58,6 @@ export function EditRecipe() {
     setSuccess('');
 
     try {
-      console.log('🔄 Starting recipe update with server-side validation');
-
-      // Prepare update data
       const recipeData = {
         title: formData.title.trim() || 'Untitled Recipe',
         prep_time: formData.prep_time || 0,
@@ -174,52 +70,29 @@ export function EditRecipe() {
         updated_at: new Date().toISOString(),
       };
 
-      // Server-side validation: RLS policy ensures only author can update
-      // The .eq('author_id', user.id) provides explicit client-side check
-      const { data: updatedRecipe, error: updateError } = await supabase
+      // RLS will automatically ensure only the author can update
+      const { data: updatedRecipe, error } = await supabase
         .from('recipes')
         .update(recipeData)
         .eq('id', id)
-        .eq('author_id', user.id) // Explicit authorization check
+        .eq('author_id', user.id)
         .select()
         .single();
 
-      console.log('📝 Update result:', { 
-        hasUpdatedRecipe: !!updatedRecipe,
-        error: updateError
-      });
-
-      if (updateError) {
-        // Handle authorization errors (403 equivalent)
-        if (updateError.code === 'PGRST301' || 
-            updateError.message.includes('permission') ||
-            updateError.message.includes('policy')) {
-          
-          logUnauthorizedAccess({
-            action: 'UPDATE_DENIED',
-            error: updateError.message
-          });
-          
-          redirectWithError('You can only modify recipes you have created');
-          return;
+      if (error) {
+        if (error.code === 'PGRST301' || error.message.includes('permission')) {
+          setError('You do not have permission to edit this recipe');
+        } else {
+          setError('Failed to update recipe');
         }
-        
-        throw updateError;
-      }
-
-      // Verify update actually happened
-      if (!updatedRecipe) {
-        console.log('🚫 No recipe updated - likely authorization failure');
-        logUnauthorizedAccess({
-          action: 'UPDATE_NO_ROWS',
-          reason: 'No rows affected by update'
-        });
-        
-        redirectWithError('You can only modify recipes you have created');
         return;
       }
 
-      console.log('✅ Recipe updated successfully');
+      if (!updatedRecipe) {
+        setError('You do not have permission to edit this recipe');
+        return;
+      }
+
       setSuccess('Recipe updated successfully!');
       
       // Redirect to recipe page after success
@@ -228,8 +101,8 @@ export function EditRecipe() {
       }, 1500);
 
     } catch (err: any) {
-      console.error('❌ Error updating recipe:', err);
-      setError(err.message || 'Failed to update recipe');
+      console.error('Error updating recipe:', err);
+      setError('Failed to update recipe');
     } finally {
       setSaving(false);
     }
@@ -238,74 +111,38 @@ export function EditRecipe() {
   const deleteRecipe = async () => {
     if (!user || !id) return;
     
-    // Enhanced confirmation with security warning
     const confirmed = window.confirm(
-      `⚠️ DELETE RECIPE WARNING ⚠️\n\nAre you absolutely sure you want to permanently delete "${formData.title}"?\n\nThis action cannot be undone and will:\n• Remove the recipe completely\n• Delete all comments and likes\n• Remove it from all saved collections\n\nType "DELETE" in the next prompt to confirm.`
+      `Are you sure you want to delete "${formData.title}"?\n\nThis action cannot be undone.`
     );
     
     if (!confirmed) return;
-    
-    // Double confirmation for security
-    const confirmText = window.prompt(
-      'To confirm deletion, please type "DELETE" (all caps):'
-    );
-    
-    if (confirmText !== 'DELETE') {
-      console.log('🚫 Delete cancelled - incorrect confirmation text');
-      return;
-    }
 
     setDeleting(true);
     setError('');
 
     try {
-      console.log('🗑️ Starting recipe deletion with server-side validation');
-
-      // Server-side validation: RLS policy + explicit author check
-      const { data: deletedRecipes, error: deleteError } = await supabase
+      // RLS will automatically ensure only the author can delete
+      const { data: deletedRecipes, error } = await supabase
         .from('recipes')
         .delete()
         .eq('id', id)
-        .eq('author_id', user.id) // Explicit authorization check
+        .eq('author_id', user.id)
         .select();
 
-      console.log('📝 Delete result:', { 
-        deletedCount: deletedRecipes?.length || 0,
-        error: deleteError
-      });
-
-      if (deleteError) {
-        // Handle authorization errors (403 equivalent)
-        if (deleteError.code === 'PGRST301' || 
-            deleteError.message.includes('permission') ||
-            deleteError.message.includes('policy') ||
-            deleteError.code === '42501') {
-          
-          logUnauthorizedAccess({
-            action: 'DELETE_DENIED',
-            error: deleteError.message
-          });
-          
-          redirectWithError('You can only modify recipes you have created');
-          return;
+      if (error) {
+        if (error.code === 'PGRST301' || error.message.includes('permission')) {
+          setError('You do not have permission to delete this recipe');
+        } else {
+          setError('Failed to delete recipe');
         }
-        
-        throw deleteError;
-      }
-
-      // Verify deletion actually happened
-      if (!deletedRecipes || deletedRecipes.length === 0) {
-        console.log('🚫 No recipe deleted - likely authorization failure');
-        logUnauthorizedAccess({
-          action: 'DELETE_NO_ROWS',
-          reason: 'No rows affected by delete'
-        });
-        
-        redirectWithError('You can only modify recipes you have created');
         return;
       }
 
-      console.log('✅ Recipe deleted successfully');
+      if (!deletedRecipes || deletedRecipes.length === 0) {
+        setError('You do not have permission to delete this recipe');
+        return;
+      }
+
       setSuccess('Recipe deleted successfully! Redirecting...');
       
       // Redirect to profile page
@@ -314,8 +151,8 @@ export function EditRecipe() {
       }, 1500);
 
     } catch (err: any) {
-      console.error('❌ Error deleting recipe:', err);
-      setError(err.message || 'Failed to delete recipe. Please try again.');
+      console.error('Error deleting recipe:', err);
+      setError('Failed to delete recipe');
     } finally {
       setDeleting(false);
     }
@@ -343,13 +180,36 @@ export function EditRecipe() {
   };
 
   // Show loading while checking authorization
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-pink-50 pt-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-            <p className="text-gray-600">Verifying permissions...</p>
+            <p className="text-gray-600">Loading recipe...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show 404 not found if access denied or recipe not found
+  if (accessError && !loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-pink-50 pt-20">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center py-20">
+            <div className="text-6xl mb-4">😕</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Recipe not found</h3>
+            <p className="text-gray-600 mb-6">
+              The recipe you're looking for doesn't exist or you do not have permission to edit it.
+            </p>
+            <button
+              onClick={() => navigate('/explore')}
+              className="bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition-colors"
+            >
+              Back to Explore
+            </button>
           </div>
         </div>
       </div>
@@ -406,194 +266,211 @@ export function EditRecipe() {
             </div>
           )}
 
+          {/* Recipe Form */}
           <form onSubmit={updateRecipe} className="space-y-8">
-            {/* Basic Info */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+            {/* Basic Information */}
+            <div className="space-y-6">
+              <h2 className="text-xl font-semibold text-gray-900">Basic Information</h2>
+              
+              <div>
+                <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
                   Recipe Title *
                 </label>
                 <input
                   type="text"
-                  required
+                  id="title"
                   value={formData.title}
                   onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
-                  placeholder="Give your recipe a delicious name"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="Enter recipe title"
+                  required
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Clock className="w-4 h-4 inline mr-1" />
-                  Prep Time (minutes)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.prep_time}
-                  onChange={(e) => setFormData(prev => ({ ...prev, prep_time: parseInt(e.target.value) || 0 }))}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label htmlFor="prep_time" className="block text-sm font-medium text-gray-700 mb-2">
+                    Prep Time (minutes)
+                  </label>
+                  <input
+                    type="number"
+                    id="prep_time"
+                    value={formData.prep_time}
+                    onChange={(e) => setFormData(prev => ({ ...prev, prep_time: parseInt(e.target.value) || 0 }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    min="0"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="cook_time" className="block text-sm font-medium text-gray-700 mb-2">
+                    Cook Time (minutes)
+                  </label>
+                  <input
+                    type="number"
+                    id="cook_time"
+                    value={formData.cook_time}
+                    onChange={(e) => setFormData(prev => ({ ...prev, cook_time: parseInt(e.target.value) || 0 }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    min="0"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="difficulty" className="block text-sm font-medium text-gray-700 mb-2">
+                    Difficulty
+                  </label>
+                  <select
+                    id="difficulty"
+                    value={formData.difficulty}
+                    onChange={(e) => setFormData(prev => ({ ...prev, difficulty: e.target.value as 'Easy' | 'Medium' | 'Hard' }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  >
+                    <option value="Easy">Easy</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Hard">Hard</option>
+                  </select>
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Clock className="w-4 h-4 inline mr-1" />
-                  Cook Time (minutes)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.cook_time}
-                  onChange={(e) => setFormData(prev => ({ ...prev, cook_time: parseInt(e.target.value) || 0 }))}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Difficulty Level
-                </label>
-                <select
-                  value={formData.difficulty}
-                  onChange={(e) => setFormData(prev => ({ ...prev, difficulty: e.target.value as any }))}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
-                >
-                  <option value="Easy">Easy</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Hard">Hard</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="image_url" className="block text-sm font-medium text-gray-700 mb-2">
                   Image URL (optional)
                 </label>
                 <input
                   type="url"
+                  id="image_url"
                   value={formData.image_url}
                   onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="https://example.com/image.jpg"
                 />
               </div>
             </div>
 
             {/* Ingredients */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-4">
-                Ingredients *
-              </label>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">Ingredients</h2>
+                <button
+                  type="button"
+                  onClick={() => addField('ingredients')}
+                  className="flex items-center space-x-2 bg-orange-500 text-white px-3 py-2 rounded-lg hover:bg-orange-600 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Ingredient</span>
+                </button>
+              </div>
+
               <div className="space-y-3">
                 {formData.ingredients.map((ingredient, index) => (
-                  <div key={index} className="flex items-center space-x-2">
+                  <div key={index} className="flex items-center space-x-3">
                     <input
                       type="text"
                       value={ingredient}
                       onChange={(e) => updateField('ingredients', index, e.target.value)}
-                      className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
+                      className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                       placeholder={`Ingredient ${index + 1}`}
                     />
                     {formData.ingredients.length > 1 && (
                       <button
                         type="button"
                         onClick={() => removeField('ingredients', index)}
-                        className="text-red-500 hover:text-red-700"
+                        className="p-2 text-red-500 hover:text-red-700 transition-colors"
                       >
-                        <Minus className="w-5 h-5" />
+                        <Minus className="w-4 h-4" />
                       </button>
                     )}
                   </div>
                 ))}
-                <button
-                  type="button"
-                  onClick={() => addField('ingredients')}
-                  className="flex items-center space-x-2 text-orange-500 hover:text-orange-700"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Ingredient</span>
-                </button>
               </div>
             </div>
 
             {/* Instructions */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-4">
-                Instructions *
-              </label>
-              <div className="space-y-3">
-                {formData.instructions.map((instruction, index) => (
-                  <div key={index} className="flex items-start space-x-2">
-                    <span className="text-sm text-gray-500 mt-3 min-w-[1.5rem]">{index + 1}.</span>
-                    <textarea
-                      value={instruction}
-                      onChange={(e) => updateField('instructions', index, e.target.value)}
-                      className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 min-h-[60px]"
-                      placeholder={`Step ${index + 1}`}
-                    />
-                    {formData.instructions.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeField('instructions', index)}
-                        className="text-red-500 hover:text-red-700 mt-2"
-                      >
-                        <Minus className="w-5 h-5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">Instructions</h2>
                 <button
                   type="button"
                   onClick={() => addField('instructions')}
-                  className="flex items-center space-x-2 text-orange-500 hover:text-orange-700"
+                  className="flex items-center space-x-2 bg-orange-500 text-white px-3 py-2 rounded-lg hover:bg-orange-600 transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Step</span>
                 </button>
               </div>
-            </div>
 
-            {/* Tags */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-4">
-                <Tag className="w-4 h-4 inline mr-1" />
-                Tags (optional)
-              </label>
               <div className="space-y-3">
-                {formData.tags.map((tag, index) => (
-                  <div key={index} className="flex items-center space-x-2">
-                    <span className="text-gray-400">#</span>
-                    <input
-                      type="text"
-                      value={tag}
-                      onChange={(e) => updateField('tags', index, e.target.value)}
-                      className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
-                      placeholder={`Tag ${index + 1} (e.g., vegan, quick, dessert)`}
-                    />
-                    {formData.tags.length > 1 && (
+                {formData.instructions.map((instruction, index) => (
+                  <div key={index} className="flex items-start space-x-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-medium mt-3">
+                      {index + 1}
+                    </div>
+                    <div className="flex-1">
+                      <textarea
+                        value={instruction}
+                        onChange={(e) => updateField('instructions', index, e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-vertical"
+                        rows={3}
+                        placeholder={`Step ${index + 1}`}
+                      />
+                    </div>
+                    {formData.instructions.length > 1 && (
                       <button
                         type="button"
-                        onClick={() => removeField('tags', index)}
-                        className="text-red-500 hover:text-red-700"
+                        onClick={() => removeField('instructions', index)}
+                        className="p-2 text-red-500 hover:text-red-700 transition-colors mt-3"
                       >
-                        <Minus className="w-5 h-5" />
+                        <Minus className="w-4 h-4" />
                       </button>
                     )}
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">Tags</h2>
                 <button
                   type="button"
                   onClick={() => addField('tags')}
-                  className="flex items-center space-x-2 text-orange-500 hover:text-orange-700"
+                  className="flex items-center space-x-2 bg-orange-500 text-white px-3 py-2 rounded-lg hover:bg-orange-600 transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Tag</span>
                 </button>
               </div>
+
+              <div className="space-y-3">
+                {formData.tags.map((tag, index) => (
+                  <div key={index} className="flex items-center space-x-3">
+                    <div className="flex-shrink-0">
+                      <Tag className="w-5 h-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      value={tag}
+                      onChange={(e) => updateField('tags', index, e.target.value)}
+                      className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      placeholder="Enter tag"
+                    />
+                    {formData.tags.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeField('tags', index)}
+                        className="p-2 text-red-500 hover:text-red-700 transition-colors"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Submit */}
+            {/* Submit Button */}
             <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
               <button
                 type="button"
@@ -603,14 +480,14 @@ export function EditRecipe() {
                 Cancel
               </button>
               <motion.button
+                type="submit"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                type="submit"
                 disabled={saving}
-                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-lg hover:from-orange-600 hover:to-pink-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center space-x-2 bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-4 h-4" />
-                <span>{saving ? 'Saving Changes...' : 'Save Changes'}</span>
+                <span>{saving ? 'Saving...' : 'Save Changes'}</span>
               </motion.button>
             </div>
           </form>

@@ -52,6 +52,7 @@ export function Home() {
 
   const loadFeaturedRecipes = async () => {
     setLoading(true);
+    console.log('🔍 Loading featured recipes...');
     
     const { data, error } = await supabase
       .from('recipes')
@@ -66,8 +67,9 @@ export function Home() {
       .limit(6);
 
     if (error) {
-      console.error('Error loading featured recipes:', error);
+      console.error('❌ Error loading featured recipes:', error);
     } else {
+      console.log('✅ Featured recipes loaded:', data?.length || 0, 'recipes');
       setFeaturedRecipes(data || []);
     }
     
@@ -76,7 +78,13 @@ export function Home() {
 
   const handleRecipeClick = (recipeId: string) => {
     if (!user) {
-      navigate('/login');
+      // Show a more informative message and provide clear call-to-action
+      const shouldSignUp = window.confirm(
+        'Sign up to view full recipe details, save favorites, and create your own recipes!'
+      );
+      if (shouldSignUp) {
+        navigate('/signup');
+      }
     } else {
       navigate(`/recipe/${recipeId}`);
     }
@@ -258,7 +266,10 @@ export function Home() {
                   
                   {!user && (
                     <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                      <span className="text-white font-semibold">Sign in to view recipe</span>
+                      <div className="text-center text-white">
+                        <p className="font-semibold mb-2">Sign in to view recipe details</p>
+                        <p className="text-sm opacity-90">Create an account to save favorites</p>
+                      </div>
                     </div>
                   )}
                 </div>

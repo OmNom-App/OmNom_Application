@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthContext } from '../context/AuthContext';
-import { useUnauthorizedAccess } from '../hooks/useUnauthorizedAccess';
+
 import { RecipeCard } from '../components/RecipeCard';
 import { format } from 'date-fns';
 
@@ -58,7 +58,7 @@ export function Profile() {
   const { userId } = useParams();
   const { user } = useAuthContext();
   const navigate = useNavigate();
-  const { handleUnauthorizedAccess } = useUnauthorizedAccess();
+
   
   const [profile, setProfile] = useState<Profile | null>(null);
   const [createdRecipes, setCreatedRecipes] = useState<Recipe[]>([]);

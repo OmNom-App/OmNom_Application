@@ -15,15 +15,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
-  
-  // Debug logging for auth state changes
-  React.useEffect(() => {
-    console.log('🔍 Auth state changed:', {
-      user: auth.user?.email || 'null',
-      loading: auth.loading,
-      hasSession: !!auth.session
-    });
-  }, [auth.user, auth.loading, auth.session]);
 
   return (
     <AuthContext.Provider value={auth}>

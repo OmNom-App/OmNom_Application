@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthContext } from '../context/AuthContext';
-import { useUnauthorizedAccess } from '../hooks/useUnauthorizedAccess';
+
 import { format } from 'date-fns';
 
 interface Recipe {
@@ -60,7 +60,7 @@ interface Comment {
 
 // Component to display original recipe information
 function OriginalRecipeCard({ originalRecipeId }: { originalRecipeId: string }) {
-  const [originalRecipe, setOriginalRecipe] = useState<Recipe | null>(null);
+  const [originalRecipe, setOriginalRecipe] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -160,7 +160,7 @@ export function RecipeDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuthContext();
   const navigate = useNavigate();
-  const { handleUnauthorizedAccess } = useUnauthorizedAccess();
+
   
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -274,6 +274,8 @@ export function RecipeDetail() {
   const loadComments = async () => {
     if (!id) return;
 
+    console.log('🔍 Loading comments for recipe:', id);
+
     try {
       const { data, error } = await supabase
         .from('comments')
@@ -288,9 +290,11 @@ export function RecipeDetail() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      
+      console.log('✅ Comments loaded:', data?.length || 0, 'comments');
       setComments(data || []);
     } catch (error) {
-      console.error('Error loading comments:', error);
+      console.error('❌ Error loading comments:', error);
     }
   };
 
@@ -373,6 +377,7 @@ export function RecipeDetail() {
       return;
     }
 
+    console.log('🔍 Adding comment...', { userId: user.id, recipeId: id, content: newComment.trim() });
     setCommentLoading(true);
 
     try {
@@ -386,11 +391,12 @@ export function RecipeDetail() {
 
       if (error) throw error;
 
+      console.log('✅ Comment added successfully');
       setNewComment('');
       setCommentCount(prev => prev + 1);
       await loadComments();
     } catch (error) {
-      console.error('Error adding comment:', error);
+      console.error('❌ Error adding comment:', error);
     } finally {
       setCommentLoading(false);
     }
@@ -398,6 +404,8 @@ export function RecipeDetail() {
 
   const handleDeleteComment = async (commentId: string) => {
     if (!user) return;
+
+    console.log('🔍 Deleting comment...', { commentId, userId: user.id });
 
     try {
       const { error } = await supabase
@@ -408,10 +416,11 @@ export function RecipeDetail() {
 
       if (error) throw error;
 
+      console.log('✅ Comment deleted successfully');
       setCommentCount(prev => prev - 1);
       await loadComments();
     } catch (error) {
-      console.error('Error deleting comment:', error);
+      console.error('❌ Error deleting comment:', error);
     }
   };
 
@@ -421,6 +430,45 @@ export function RecipeDetail() {
       return;
     }
     navigate('/create', { state: { originalRecipe: recipe } });
+  };
+
+  const handleDeleteRecipe = async () => {
+    if (!user || !id) {
+      navigate('/login');
+      return;
+    }
+
+    // Check if user owns the recipe
+    if (!isOwner) {
+      setError('You can only delete recipes you have created.');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this recipe? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('recipes')
+        .delete()
+        .eq('id', id)
+        .eq('author_id', user.id);
+
+      if (error) {
+        if (error.code === 'PGRST301' || error.message.includes('permission')) {
+          setError('You do not have permission to delete this recipe');
+        } else {
+          setError('Failed to delete recipe');
+        }
+        return;
+      }
+
+      navigate('/explore');
+    } catch (error) {
+      console.error('Error deleting recipe:', error);
+      setError('Failed to delete recipe.');
+    }
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -526,13 +574,22 @@ export function RecipeDetail() {
             {/* Action buttons */}
             <div className="absolute top-4 right-4 flex space-x-2">
               {isOwner && (
-                <button 
-                  onClick={() => navigate(`/edit-recipe/${recipe.id}`)}
-                  className="bg-white/90 backdrop-blur-sm p-2 rounded-full hover:bg-white transition-colors"
-                  title="Edit Recipe"
-                >
-                  <Edit className="w-5 h-5 text-gray-600" />
-                </button>
+                <>
+                  <button 
+                    onClick={() => navigate(`/edit-recipe/${recipe.id}`)}
+                    className="bg-white/90 backdrop-blur-sm p-2 rounded-full hover:bg-white transition-colors"
+                    title="Edit Recipe"
+                  >
+                    <Edit className="w-5 h-5 text-gray-600" />
+                  </button>
+                  <button 
+                    onClick={handleDeleteRecipe}
+                    className="bg-white/90 backdrop-blur-sm p-2 rounded-full hover:bg-red-50 transition-colors"
+                    title="Delete Recipe"
+                  >
+                    <Trash2 className="w-5 h-5 text-red-600" />
+                  </button>
+                </>
               )}
               <button 
                 onClick={handleShare}
