@@ -1,9 +1,12 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Check, Star, Crown, Zap } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { ParticleBackground } from '../components/ParticleBackground';
 
 export function Pricing() {
+  const navigate = useNavigate();
+  
   const plans = [
     {
       name: 'Hobby',
@@ -31,8 +34,7 @@ export function Pricing() {
         'AI Ingredient Substitution',
         'Smart Pantry Management',
         'Weekly Meal Planner',
-        'Recipe Collections',
-        'Advanced Search & Analytics'
+        'AI Meal Creation from Available Ingredients'
       ],
       active: false,
       highlight: true,
@@ -47,6 +49,7 @@ export function Pricing() {
         'Live Cooking Events',
         'Private Cooking Clubs',
         'Recipe Challenges',
+        'Creator Marketplace',
         'Priority Support',
         'Beta Feature Access'
       ],
@@ -130,8 +133,21 @@ export function Pricing() {
                   <p className="text-gray-600 mb-4">{plan.description}</p>
                   
                   <div className="flex items-baseline justify-center">
-                    <span className="text-4xl font-bold text-gray-900">${plan.price}</span>
-                    <span className="text-gray-600 ml-1">/month</span>
+                    {plan.name === 'Hobby' ? (
+                      <div className="text-center">
+                        <div className="flex items-baseline justify-center">
+                          <span className="text-4xl font-bold text-gray-400 line-through">${plan.price}</span>
+                          <span className="text-gray-400 ml-1 line-through">/month</span>
+                        </div>
+                        <div className="text-2xl font-bold text-green-600 mt-1">Free</div>
+                        <div className="text-sm text-green-600 font-medium mt-1">During Launch</div>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="text-4xl font-bold text-gray-900">${plan.price}</span>
+                        <span className="text-gray-600 ml-1">/month</span>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -152,6 +168,11 @@ export function Pricing() {
                   whileHover={plan.active ? { scale: 1.05 } : {}}
                   whileTap={plan.active ? { scale: 0.95 } : {}}
                   disabled={!plan.active}
+                  onClick={() => {
+                    if (plan.active && plan.name === 'Hobby') {
+                      navigate('/signup');
+                    }
+                  }}
                   className={`w-full py-3 px-6 rounded-lg font-semibold transition-all duration-200 ${
                     plan.active
                       ? plan.highlight

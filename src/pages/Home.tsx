@@ -21,6 +21,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useAuthContext } from '../context/AuthContext';
 import { ParticleBackground } from '../components/ParticleBackground';
+import { Modal } from '../components/Modal';
 
 interface Recipe {
   id: string;
@@ -45,6 +46,7 @@ export function Home() {
   const navigate = useNavigate();
   const [featuredRecipes, setFeaturedRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showSignUpModal, setShowSignUpModal] = useState(false);
 
   useEffect(() => {
     loadFeaturedRecipes();
@@ -78,13 +80,7 @@ export function Home() {
 
   const handleRecipeClick = (recipeId: string) => {
     if (!user) {
-      // Show a more informative message and provide clear call-to-action
-      const shouldSignUp = window.confirm(
-        'Sign up to view full recipe details, save favorites, and create your own recipes!'
-      );
-      if (shouldSignUp) {
-        navigate('/signup');
-      }
+      setShowSignUpModal(true);
     } else {
       navigate(`/recipe/${recipeId}`);
     }
@@ -220,7 +216,7 @@ export function Home() {
       {/* Featured Recipes */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-20">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Featured Recipes</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Newly Added Recipes</h2>
           <p className="text-gray-600 max-w-2xl mx-auto">
             Discover amazing recipes from our community of passionate cooks
           </p>
@@ -476,6 +472,43 @@ export function Home() {
           </motion.div>
         </div>
       </div>
+
+      {/* Sign Up Modal */}
+      <Modal
+        isOpen={showSignUpModal}
+        onClose={() => setShowSignUpModal(false)}
+        title="Join OmNom"
+        showCloseButton={true}
+      >
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ChefHat className="w-8 h-8 text-white" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">
+            Unlock Full Recipe Access
+          </h3>
+          <p className="text-gray-600 mb-6">
+            Sign up to view full recipe details, save favorites, and create your own recipes!
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => {
+                setShowSignUpModal(false);
+                navigate('/signup');
+              }}
+              className="flex-1 bg-gradient-to-r from-orange-500 to-pink-500 text-white px-6 py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-pink-600 transition-all duration-200"
+            >
+              Sign Up Now
+            </button>
+            <button
+              onClick={() => setShowSignUpModal(false)}
+              className="flex-1 border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-all duration-200"
+            >
+              Maybe Later
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

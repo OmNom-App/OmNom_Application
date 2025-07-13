@@ -61,6 +61,8 @@ export type Database = {
           cook_time: number;
           difficulty: 'Easy' | 'Medium' | 'Hard';
           tags: string[];
+          cuisine: string | null;
+          dietary: string[];
           image_url: string | null;
           author_id: string;
           original_recipe_id: string | null;
@@ -77,6 +79,8 @@ export type Database = {
           cook_time: number;
           difficulty: 'Easy' | 'Medium' | 'Hard';
           tags: string[];
+          cuisine?: string | null;
+          dietary?: string[];
           image_url?: string | null;
           author_id: string;
           original_recipe_id?: string | null;

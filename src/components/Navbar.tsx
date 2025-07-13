@@ -10,7 +10,8 @@ import {
   LogOut, 
   Menu, 
   X,
-  ChefHat
+  ChefHat,
+  Settings
 } from 'lucide-react';
 import { useAuthContext } from '../context/AuthContext';
 
@@ -49,7 +50,7 @@ export function Navbar() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      navigate(`/explore?q=${encodeURIComponent(searchQuery.trim())}`);
       setSearchQuery('');
     }
   };
@@ -77,18 +78,20 @@ export function Navbar() {
           </Link>
 
           {/* Search Bar - Desktop */}
-          <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md mx-8">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search recipes..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent"
-              />
-            </div>
-          </form>
+          {user && (
+            <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md mx-8">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search recipes..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent"
+                />
+              </div>
+            </form>
+          )}
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-4">
@@ -190,18 +193,20 @@ export function Navbar() {
             className="md:hidden py-4 space-y-4"
           >
             {/* Mobile Search */}
-            <form onSubmit={handleSearch}>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search recipes..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent"
-                />
-              </div>
-            </form>
+            {user && (
+              <form onSubmit={handleSearch}>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search recipes..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent"
+                  />
+                </div>
+              </form>
+            )}
 
             {user ? (
               <div className="space-y-2">
@@ -220,6 +225,10 @@ export function Navbar() {
                 <Link to="/profile" className="flex items-center space-x-2 p-2">
                   <User className="w-5 h-5" />
                   <span>Profile</span>
+                </Link>
+                <Link to="/settings" className="flex items-center space-x-2 p-2">
+                  <Settings className="w-5 h-5" />
+                  <span>Settings</span>
                 </Link>
                 <button onClick={handleSignOut} className="flex items-center space-x-2 p-2 text-red-500">
                   <LogOut className="w-5 h-5" />

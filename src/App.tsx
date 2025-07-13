@@ -8,6 +8,7 @@ import { CreateRecipe } from './pages/CreateRecipe';
 import { EditRecipe } from './pages/EditRecipe';
 import { RecipeDetail } from './pages/RecipeDetail';
 import { Profile } from './pages/Profile';
+import { Settings } from './pages/Settings';
 import { Saved } from './pages/Saved';
 import { Pricing } from './pages/Pricing';
 import { Navbar } from './components/Navbar';
@@ -33,6 +34,11 @@ function App() {
             <Route path="/recipe/:id" element={<RecipeDetail />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/profile/:userId" element={<Profile />} />
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            } />
             <Route path="/saved" element={<Saved />} />
             <Route path="/pricing" element={<Pricing />} />
           </Routes>

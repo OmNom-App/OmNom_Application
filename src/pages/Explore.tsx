@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Search, 
@@ -49,11 +49,12 @@ interface Filters {
 export function Explore() {
   const { user } = useAuthContext();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [sortBy, setSortBy] = useState<'newest' | 'popular' | 'quickest'>('newest');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<Filters>({
@@ -65,6 +66,23 @@ export function Explore() {
   });
 
   const ITEMS_PER_PAGE = 12;
+
+  // Update URL when search query changes
+  useEffect(() => {
+    if (searchQuery) {
+      setSearchParams({ q: searchQuery });
+    } else {
+      setSearchParams({});
+    }
+  }, [searchQuery, setSearchParams]);
+
+  // Update search query when URL changes
+  useEffect(() => {
+    const urlQuery = searchParams.get('q');
+    if (urlQuery !== searchQuery) {
+      setSearchQuery(urlQuery || '');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     loadRecipes(true);
@@ -97,8 +115,7 @@ export function Explore() {
 
     // Apply dietary filters
     if (filters.dietary.length > 0) {
-      const dietaryQuery = filters.dietary.map(diet => `tags.cs.{${diet}}`).join(',');
-      query = query.or(dietaryQuery);
+      query = query.overlaps('dietary', filters.dietary);
     }
 
     // Apply difficulty filter
@@ -114,7 +131,7 @@ export function Explore() {
 
     // Apply cuisine filter
     if (filters.cuisine) {
-      query = query.contains('tags', [filters.cuisine]);
+      query = query.eq('cuisine', filters.cuisine);
     }
 
     // Apply sorting

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChefHat, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { ChefHat, Mail, Lock, Eye, EyeOff, User } from 'lucide-react';
 import { useAuthContext } from '../context/AuthContext';
 import { useAuthRedirect } from '../hooks/useAuthRedirect';
 import { ParticleBackground } from '../components/ParticleBackground';
@@ -15,6 +15,7 @@ export function Auth({ mode }: AuthProps) {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
+    fullName: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -31,7 +32,7 @@ export function Auth({ mode }: AuthProps) {
     try {
       const { error } = mode === 'login' 
         ? await signIn(formData.email, formData.password)
-        : await signUp(formData.email, formData.password);
+        : await signUp(formData.email, formData.password, formData.fullName);
 
       if (error) {
         setError(error.message);
@@ -85,6 +86,27 @@ export function Auth({ mode }: AuthProps) {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {mode === 'signup' && (
+              <div>
+                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Full Name
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="text"
+                    name="fullName"
+                    id="fullName"
+                    required
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent"
+                    placeholder="Enter your full name"
+                  />
+                </div>
+              </div>
+            )}
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                 Email Address

@@ -15,12 +15,15 @@ import {
   List,
   ArrowLeft,
   Settings,
-  Share2
+  Share2,
+  Upload,
+  X
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthContext } from '../context/AuthContext';
 
 import { RecipeCard } from '../components/RecipeCard';
+import { Modal } from '../components/Modal';
 import { format } from 'date-fns';
 
 interface Profile {
@@ -73,6 +76,10 @@ export function Profile() {
   const [createdHasMore, setCreatedHasMore] = useState(true);
   const [remixedHasMore, setRemixedHasMore] = useState(true);
   const [error, setError] = useState('');
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
   const ITEMS_PER_PAGE = 12;
   const profileId = userId || user?.id;
@@ -253,6 +260,93 @@ export function Profile() {
     }
   };
 
+  const handleAvatarFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Please select an image file');
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('File size must be less than 5MB');
+        return;
+      }
+
+      setAvatarFile(file);
+      setError('');
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setAvatarPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadAvatar = async () => {
+    if (!avatarFile || !user) return;
+
+    setUploadingAvatar(true);
+    setError('');
+
+    try {
+      // Upload file to Supabase storage
+      const fileExt = avatarFile.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = fileName;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, avatarFile);
+
+      if (uploadError) {
+        console.error('Supabase upload error:', uploadError);
+        setError('Failed to upload avatar: ' + uploadError.message);
+        return;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      if (!publicUrl) {
+        setError('Failed to get public URL for avatar.');
+        return;
+      }
+
+      // Update profile with new avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          avatar_url: publicUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.error('Supabase update profile error:', updateError);
+        setError('Failed to update profile: ' + updateError.message);
+        return;
+      }
+
+      // Update local state only if everything succeeded
+      setProfile(prev => prev ? { ...prev, avatar_url: publicUrl } : prev);
+      setShowAvatarModal(false);
+      setAvatarFile(null);
+      setAvatarPreview(null);
+    } catch (err: any) {
+      console.error('Error uploading avatar:', err);
+      setError('Failed to upload avatar. Please check your file and try again.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const shareProfile = async () => {
     const profileUrl = `${window.location.origin}/profile/${profileId}`;
     
@@ -341,11 +435,11 @@ export function Profile() {
         <motion.button
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          onClick={() => navigate(-1)}
+          onClick={() => navigate('/explore')}
           className="flex items-center space-x-2 text-gray-600 hover:text-orange-500 transition-colors mb-6"
         >
           <ArrowLeft className="w-5 h-5" />
-          <span>Back</span>
+          <span>Back to Explore</span>
         </motion.button>
 
         {/* Profile Header */}
@@ -369,7 +463,10 @@ export function Profile() {
                 )}
               </div>
               {isOwnProfile && (
-                <button className="absolute -bottom-2 -right-2 bg-orange-500 text-white p-2 rounded-full hover:bg-orange-600 transition-colors">
+                <button 
+                  onClick={() => setShowAvatarModal(true)}
+                  className="absolute -bottom-2 -right-2 bg-orange-500 text-white p-2 rounded-full hover:bg-orange-600 transition-colors"
+                >
                   <Edit3 className="w-4 h-4" />
                 </button>
               )}
@@ -390,7 +487,10 @@ export function Profile() {
                     <span>Share</span>
                   </button>
                   {isOwnProfile && (
-                    <button className="flex items-center space-x-2 text-gray-600 hover:text-orange-500 transition-colors">
+                    <button 
+                      onClick={() => navigate('/settings')}
+                      className="flex items-center space-x-2 text-gray-600 hover:text-orange-500 transition-colors"
+                    >
                       <Settings className="w-5 h-5" />
                       <span>Settings</span>
                     </button>
@@ -577,6 +677,106 @@ export function Profile() {
             )}
           </div>
         </motion.div>
+
+        {/* Avatar Upload Modal */}
+        <Modal
+          isOpen={showAvatarModal}
+          onClose={() => {
+            setShowAvatarModal(false);
+            setAvatarFile(null);
+            setAvatarPreview(null);
+            setError('');
+          }}
+          title="Update Profile Picture"
+        >
+          <div className="space-y-6">
+            {/* Current Avatar */}
+            <div className="text-center">
+              <div className="inline-block relative">
+                <div className="w-24 h-24 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center mx-auto">
+                  {avatarPreview ? (
+                    <img
+                      src={avatarPreview}
+                      alt="Preview"
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt={profile.display_name}
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-12 h-12 text-white" />
+                  )}
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 mt-2">
+                {avatarPreview ? 'New avatar preview' : 'Current avatar'}
+              </p>
+            </div>
+
+            {/* File Upload */}
+            <div className="space-y-4">
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700 mb-2 block">
+                  Choose an image
+                </span>
+                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-orange-400 transition-colors">
+                  <div className="space-y-1 text-center">
+                    <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                    <div className="flex text-sm text-gray-600">
+                      <label
+                        htmlFor="avatar-upload"
+                        className="relative cursor-pointer bg-white rounded-md font-medium text-orange-600 hover:text-orange-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-orange-500"
+                      >
+                        <span>Upload a file</span>
+                        <input
+                          id="avatar-upload"
+                          name="avatar-upload"
+                          type="file"
+                          className="sr-only"
+                          accept="image/*"
+                          onChange={handleAvatarFileChange}
+                        />
+                      </label>
+                      <p className="pl-1">or drag and drop</p>
+                    </div>
+                    <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                  </div>
+                </div>
+              </label>
+
+              {error && (
+                <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
+                  {error}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowAvatarModal(false);
+                    setAvatarFile(null);
+                    setAvatarPreview(null);
+                    setError('');
+                  }}
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={uploadAvatar}
+                  disabled={!avatarFile || uploadingAvatar}
+                  className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploadingAvatar ? 'Uploading...' : 'Upload Avatar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Modal>
       </div>
     </div>
   );
