@@ -18,6 +18,7 @@ interface Recipe {
   author_id: string;
   is_remix: boolean;
   created_at: string;
+  like_count: number;
   profiles?: {
     display_name: string;
     avatar_url: string | null;
@@ -36,7 +37,7 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
   const navigate = useNavigate();
   const [isLiked, setIsLiked] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
-  const [likeCount, setLikeCount] = useState(0);
+  const [likeCount, setLikeCount] = useState(recipe.like_count || 0);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
 
   useEffect(() => {
@@ -44,8 +45,9 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
       checkLikeStatus();
       checkSaveStatus();
     }
-    getLikeCount();
-  }, [user, recipe.id]);
+    // Use the like_count from recipe data instead of fetching separately
+    setLikeCount(recipe.like_count || 0);
+  }, [user, recipe.id, recipe.like_count]);
 
   const checkLikeStatus = async () => {
     if (!user) return;
@@ -73,14 +75,7 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
     setIsSaved(!!data);
   };
 
-  const getLikeCount = async () => {
-    const { count } = await supabase
-      .from('likes')
-      .select('*', { count: 'exact', head: true })
-      .eq('recipe_id', recipe.id);
-    
-    setLikeCount(count || 0);
-  };
+
 
   const handleLike = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -155,7 +150,7 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
     }
   };
 
-  const totalTime = recipe.prep_time + recipe.cook_time;
+
 
   const handleCardClick = () => {
     if (!user) {
@@ -192,14 +187,11 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
               🔄 Remix
             </div>
           )}
-          
-          <div className={`absolute top-2 right-2 text-xs px-2 py-1 rounded-full ${getDifficultyColor(recipe.difficulty)}`}>
-            {recipe.difficulty}
-          </div>
         </div>
 
         <div className="p-4 flex-1 flex flex-col">
-          <h3 className="font-semibold text-lg text-gray-900 mb-2 min-h-[3.5rem] overflow-hidden" style={{
+          {/* Recipe Title */}
+          <h3 className="font-semibold text-lg text-gray-900 mb-3 overflow-hidden" style={{
             display: '-webkit-box',
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
@@ -208,65 +200,83 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
             {recipe.title}
           </h3>
           
-          <div className="flex items-center text-sm text-gray-600 mb-3">
-            <Users className="w-4 h-4 mr-1" />
-            <span>{recipe.profiles?.display_name || 'Chef'}</span>
-          </div>
-
+          {/* Author */}
           <div className="flex items-center text-sm text-gray-600 mb-4">
-            <Clock className="w-4 h-4 mr-1" />
-            <span>{totalTime} mins</span>
-            <Star className="w-4 h-4 ml-4 mr-1" />
-            <span>{recipe.ingredients.length} ingredients</span>
+            <Users className="w-4 h-4 mr-2" />
+            <span className="truncate">{recipe.profiles?.display_name || 'Chef'}</span>
           </div>
 
-          <div className="flex flex-wrap gap-1 mb-4">
-            {recipe.tags.slice(0, 3).map((tag) => (
-              <span
-                key={tag}
-                className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full"
-              >
-                #{tag}
-              </span>
-            ))}
-            {recipe.tags.length > 3 && (
-              <span className="text-xs text-gray-500">+{recipe.tags.length - 3}</span>
-            )}
+          {/* Recipe Stats */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="flex items-center text-xs text-gray-500">
+              <Clock className="w-3 h-3 mr-1.5" />
+              <span>Prep {recipe.prep_time}m</span>
+            </div>
+            <div className="flex items-center text-xs text-gray-500">
+              <Clock className="w-3 h-3 mr-1.5" />
+              <span>Cook {recipe.cook_time}m</span>
+            </div>
+            <div className="flex items-center text-xs text-gray-500">
+              <Star className="w-3 h-3 mr-1.5" />
+              <span>{recipe.ingredients.length} ingredients</span>
+            </div>
+            <div className="flex items-center text-xs text-gray-500">
+              <span className={`w-2 h-2 rounded-full mr-1.5 ${getDifficultyColor(recipe.difficulty).split(' ')[1]}`}></span>
+              <span>{recipe.difficulty}</span>
+            </div>
           </div>
 
-          <div className="flex items-center justify-between mt-auto pt-2">
-            <div className="flex items-center space-x-2">
+          {/* Tags */}
+          {recipe.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-4">
+              {recipe.tags.slice(0, 2).map((tag) => (
+                <span
+                  key={tag}
+                  className="text-xs bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full border border-orange-200"
+                >
+                  #{tag}
+                </span>
+              ))}
+              {recipe.tags.length > 2 && (
+                <span className="text-xs text-gray-400">+{recipe.tags.length - 2}</span>
+              )}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100">
+            <div className="flex items-center space-x-3">
               <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={handleLike}
                 className={`flex items-center space-x-1 ${
                   isLiked ? 'text-red-500' : 'text-gray-400'
                 } hover:text-red-500 transition-colors`}
               >
-                <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
-                <span className="text-sm">{likeCount}</span>
+                <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+                <span className="text-xs font-medium">{likeCount}</span>
               </motion.button>
 
               <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={handleSave}
                 className={`${
                   isSaved ? 'text-orange-500' : 'text-gray-400'
                 } hover:text-orange-500 transition-colors`}
               >
-                <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
+                <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
               </motion.button>
 
               {onShare && (
                 <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={onShare}
                   className="text-gray-400 hover:text-blue-500 transition-colors"
                 >
-                  <Share2 className="w-5 h-5" />
+                  <Share2 className="w-4 h-4" />
                 </motion.button>
               )}
             </div>

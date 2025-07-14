@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Search, 
@@ -44,10 +44,13 @@ interface SavedRecipe {
     cook_time: number;
     difficulty: 'Easy' | 'Medium' | 'Hard';
     tags: string[];
+    cuisine: string;
+    dietary: string[];
     image_url: string | null;
     author_id: string;
     is_remix: boolean;
     created_at: string;
+    like_count: number;
     profiles?: {
       display_name: string;
       avatar_url: string | null;
@@ -56,11 +59,6 @@ interface SavedRecipe {
 }
 
 interface Filters {
-  search: string;
-  cookingTime: string;
-  cuisine: string;
-  dietary: string[];
-  difficulty: string;
   sortBy: string;
 }
 
@@ -76,6 +74,7 @@ interface RecipeStats {
 export function Saved() {
   const { user } = useAuthContext();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
   const [filteredRecipes, setFilteredRecipes] = useState<SavedRecipe[]>([]);
@@ -87,14 +86,10 @@ export function Saved() {
   const [bulkMode, setBulkMode] = useState(false);
   const [stats, setStats] = useState<RecipeStats | null>(null);
   
-  const [filters, setFilters] = useState<Filters>({
-    search: '',
-    cookingTime: '',
-    cuisine: '',
-    dietary: [],
-    difficulty: '',
-    sortBy: 'newest'
-  });
+  // Remove searchInput and searchQuery state
+  // const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
+  // const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+  const [sortBy, setSortBy] = useState<string>('newest');
 
   const ITEMS_PER_PAGE = 12;
   const [page, setPage] = useState(0);
@@ -107,8 +102,26 @@ export function Saved() {
   }, [user]);
 
   useEffect(() => {
-    applyFilters();
-  }, [savedRecipes, filters]);
+    setFilteredRecipes(applySort(savedRecipes, sortBy));
+  }, [savedRecipes, sortBy]);
+
+  // Update URL when search query changes
+  useEffect(() => {
+    if (searchParams.get('q')) {
+      setSearchParams({ q: searchParams.get('q') || '' });
+    } else {
+      setSearchParams({});
+    }
+  }, [searchParams]);
+
+  // Sync URL parameters to state on mount and URL changes
+  useEffect(() => {
+    const urlQuery = searchParams.get('q');
+    if (urlQuery !== searchParams.get('q')) {
+      // setSearchInput(urlQuery || ''); // Removed
+      // setSearchQuery(urlQuery || ''); // Removed
+    }
+  }, [searchParams]);
 
   const loadSavedRecipes = async () => {
     if (!user) return;
@@ -301,105 +314,54 @@ export function Saved() {
     });
   };
 
-  const applyFilters = () => {
-    let filtered = [...savedRecipes];
+  // Helper function to filter recipes by ingredients
+  const filterRecipesByIngredients = (recipes: SavedRecipe[], ingredientFilter: string): SavedRecipe[] => {
+    if (!ingredientFilter.trim()) return recipes;
+    
+    const ingredientList = ingredientFilter
+      .split(',')
+      .map(ingredient => ingredient.trim().toLowerCase())
+      .filter(ingredient => ingredient.length > 0);
+    
+    if (ingredientList.length === 0) return recipes;
+    
+    return recipes.filter(save => {
+      return ingredientList.some(searchIngredient => {
+        return save.recipes.ingredients.some(recipeIngredient => 
+          recipeIngredient.toLowerCase().includes(searchIngredient)
+        );
+      });
+    });
+  };
 
-    // Search filter
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter(save =>
-        save.recipes.title.toLowerCase().includes(searchLower) ||
-        save.recipes.ingredients.some(ingredient => 
-          ingredient.toLowerCase().includes(searchLower)
-        ) ||
-        save.recipes.tags.some(tag => 
-          tag.toLowerCase().includes(searchLower)
-        )
-      );
-    }
-
-    // Cooking time filter
-    if (filters.cookingTime) {
-      const maxTime = parseInt(filters.cookingTime);
-      filtered = filtered.filter(save => 
-        save.recipes.prep_time + save.recipes.cook_time <= maxTime
-      );
-    }
-
-    // Cuisine filter
-    if (filters.cuisine) {
-      filtered = filtered.filter(save =>
-        save.recipes.tags.some(tag => 
-          tag.toLowerCase() === filters.cuisine.toLowerCase()
-        )
-      );
-    }
-
-    // Dietary filters
-    if (filters.dietary.length > 0) {
-      filtered = filtered.filter(save =>
-        filters.dietary.every(diet =>
-          save.recipes.tags.some(tag => 
-            tag.toLowerCase() === diet.toLowerCase()
-          )
-        )
-      );
-    }
-
-    // Difficulty filter
-    if (filters.difficulty) {
-      filtered = filtered.filter(save => 
-        save.recipes.difficulty === filters.difficulty
-      );
-    }
-
-    // Sort
-    switch (filters.sortBy) {
+  const applySort = (recipes: SavedRecipe[], sortBy: string) => {
+    let sorted = [...recipes];
+    switch (sortBy) {
       case 'newest':
-        filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         break;
       case 'oldest':
-        filtered.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        sorted.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         break;
       case 'alphabetical':
-        filtered.sort((a, b) => a.recipes.title.localeCompare(b.recipes.title));
+        sorted.sort((a, b) => a.recipes.title.localeCompare(b.recipes.title));
         break;
       case 'quickest':
-        filtered.sort((a, b) => 
-          (a.recipes.prep_time + a.recipes.cook_time) - 
+        sorted.sort((a, b) =>
+          (a.recipes.prep_time + a.recipes.cook_time) -
           (b.recipes.prep_time + b.recipes.cook_time)
         );
         break;
+      default:
+        sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
-
-    setFilteredRecipes(filtered);
-  };
-
-  const handleFilterChange = (key: keyof Filters, value: any) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  };
-
-  const toggleDietaryFilter = (diet: string) => {
-    setFilters(prev => ({
-      ...prev,
-      dietary: prev.dietary.includes(diet)
-        ? prev.dietary.filter(d => d !== diet)
-        : [...prev.dietary, diet]
-    }));
+    return sorted;
   };
 
   const clearFilters = () => {
-    setFilters({
-      search: '',
-      cookingTime: '',
-      cuisine: '',
-      dietary: [],
-      difficulty: '',
-      sortBy: 'newest'
-    });
+    // setSearchInput(''); // Removed
+    // setSearchQuery(''); // Removed
+    setSortBy('newest');
   };
 
   const toggleRecipeSelection = (recipeId: string) => {
@@ -445,8 +407,28 @@ export function Saved() {
     }
   };
 
-  const dietaryOptions = ['vegan', 'vegetarian', 'gluten-free', 'dairy-free', 'keto', 'paleo'];
-  const cuisineOptions = ['italian', 'mexican', 'asian', 'indian', 'mediterranean', 'american'];
+  // Add a clear search function
+  const clearSearch = () => {
+    // setSearchInput(''); // Removed
+    // setSearchQuery(''); // Removed
+    setSearchParams({});
+  };
+
+  // Handle individual recipe unsave
+  const handleUnsave = (recipeId: string) => {
+    // Remove the recipe from savedRecipes state
+    setSavedRecipes(prev => prev.filter(save => save.recipe_id !== recipeId));
+    
+    // Also remove from selected recipes if it was selected
+    setSelectedRecipes(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(recipeId);
+      return newSet;
+    });
+  };
+
+  const dietaryOptions = ['vegan', 'vegetarian', 'gluten-free', 'dairy-free', 'keto', 'paleo', 'pescatarian', 'other'];
+  const cuisineOptions = ['Italian', 'Mexican', 'Asian', 'Indian', 'Mediterranean', 'American', 'Other'];
 
   if (loading) {
     return (
@@ -618,28 +600,36 @@ export function Saved() {
           </motion.div>
         ) : (
           <>
+            {/* Search Results Header */}
+            {searchParams.get('q') && (
+              <div className="mb-6 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Search className="w-5 h-5 text-gray-500" />
+                  <span className="text-gray-600">
+                    Search results for "{searchParams.get('q')}"
+                  </span>
+                </div>
+                <button
+                  onClick={clearSearch}
+                  className="flex items-center space-x-2 text-orange-500 hover:text-orange-600 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Clear Search</span>
+                </button>
+              </div>
+            )}
+
             {/* Search and Controls */}
             <div className="bg-white/70 backdrop-blur-sm rounded-xl p-6 border border-orange-100 mb-8">
               <div className="flex flex-col lg:flex-row gap-4">
                 {/* Search Bar */}
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <input
-                      type="text"
-                      value={filters.search}
-                      onChange={(e) => handleFilterChange('search', e.target.value)}
-                      placeholder="Search saved recipes..."
-                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
-                    />
-                  </div>
-                </div>
+                {/* Removed Search Bar UI */}
 
                 {/* Controls */}
                 <div className="flex items-center space-x-4">
                   <select
-                    value={filters.sortBy}
-                    onChange={(e) => handleFilterChange('sortBy', e.target.value)}
+                    value={sortBy}
+                    onChange={e => setSortBy(e.target.value)}
                     className="px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
                   >
                     <option value="newest">Recently Saved</option>
@@ -647,14 +637,7 @@ export function Saved() {
                     <option value="alphabetical">A-Z</option>
                     <option value="quickest">Quickest First</option>
                   </select>
-
-                  <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="flex items-center space-x-2 px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <SlidersHorizontal className="w-5 h-5" />
-                    <span>Filters</span>
-                  </button>
+                  {/* Remove filter button and static text */}
 
                   <div className="flex items-center space-x-2">
                     <button
@@ -682,103 +665,7 @@ export function Saved() {
               </div>
 
               {/* Filters Panel */}
-              {showFilters && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="mt-6 pt-6 border-t border-gray-200"
-                >
-                  <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {/* Cooking Time */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Max Cook Time
-                      </label>
-                      <select
-                        value={filters.cookingTime}
-                        onChange={(e) => handleFilterChange('cookingTime', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
-                      >
-                        <option value="">Any time</option>
-                        <option value="15">15 minutes</option>
-                        <option value="30">30 minutes</option>
-                        <option value="60">1 hour</option>
-                        <option value="120">2 hours</option>
-                      </select>
-                    </div>
-
-                    {/* Cuisine */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Cuisine Type
-                      </label>
-                      <select
-                        value={filters.cuisine}
-                        onChange={(e) => handleFilterChange('cuisine', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
-                      >
-                        <option value="">Any cuisine</option>
-                        {cuisineOptions.map((cuisine) => (
-                          <option key={cuisine} value={cuisine} className="capitalize">
-                            {cuisine}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Difficulty */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Difficulty
-                      </label>
-                      <select
-                        value={filters.difficulty}
-                        onChange={(e) => handleFilterChange('difficulty', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
-                      >
-                        <option value="">Any difficulty</option>
-                        <option value="Easy">Easy</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Hard">Hard</option>
-                      </select>
-                    </div>
-
-                    {/* Clear Filters */}
-                    <div className="flex items-end">
-                      <button
-                        onClick={clearFilters}
-                        className="flex items-center space-x-2 text-orange-500 hover:text-orange-600 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                        <span>Clear Filters</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Dietary Restrictions */}
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Dietary Restrictions
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {dietaryOptions.map((diet) => (
-                        <button
-                          key={diet}
-                          onClick={() => toggleDietaryFilter(diet)}
-                          className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                            filters.dietary.includes(diet)
-                              ? 'bg-orange-500 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          {diet}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
+              {/* Removed Filters Panel */}
 
               {/* Bulk Actions */}
               {bulkMode && (
@@ -866,6 +753,12 @@ export function Saved() {
                       <div className="relative">
                         <RecipeCard 
                           recipe={save.recipes}
+                          onSave={(recipeId, isSaved) => {
+                            if (!isSaved) {
+                              // Recipe was unsaved, remove it from the list
+                              handleUnsave(recipeId);
+                            }
+                          }}
                           onShare={() => {
                             if (navigator.share) {
                               navigator.share({

@@ -30,8 +30,8 @@ export function CreateRecipe() {
     image_url: '',
   });
 
-  const cuisineOptions = ['italian', 'mexican', 'asian', 'indian', 'mediterranean', 'american'];
-  const dietaryOptions = ['vegan', 'vegetarian', 'gluten-free', 'dairy-free', 'keto', 'paleo'];
+  const cuisineOptions = ['italian', 'mexican', 'asian', 'indian', 'mediterranean', 'american', 'other'];
+  const dietaryOptions = ['vegan', 'vegetarian', 'gluten-free', 'dairy-free', 'keto', 'paleo', 'pescatarian', 'other'];
 
 
 
