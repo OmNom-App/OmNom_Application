@@ -30,25 +30,19 @@ export const getCurrentUser = async () => {
 // Robust session refresh for tab switching issues
 export const refreshSession = async () => {
   try {
-    console.log('🔄 Refreshing session...');
-    
     // Force refresh the session
     const { data: { session }, error } = await supabase.auth.refreshSession();
     
     if (error) {
-      console.error('❌ Session refresh error:', error);
       return null;
     }
     
     if (session) {
-      console.log('✅ Session refreshed successfully');
       return session;
     } else {
-      console.log('❌ No session after refresh');
       return null;
     }
   } catch (error) {
-    console.error('❌ Unexpected error during session refresh:', error);
     return null;
   }
 };
@@ -56,8 +50,6 @@ export const refreshSession = async () => {
 // Force session recovery for stuck states
 export const forceSessionRecovery = async () => {
   try {
-    console.log('🔄 Force session recovery...');
-    
     // Clear any stuck state
     await supabase.auth.signOut();
     
@@ -68,14 +60,11 @@ export const forceSessionRecovery = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     
     if (session) {
-      console.log('✅ Session recovery successful');
       return session;
     } else {
-      console.log('❌ No session after recovery');
       return null;
     }
   } catch (error) {
-    console.error('❌ Session recovery failed:', error);
     return null;
   }
 };

@@ -134,7 +134,6 @@ export function Profile() {
       setFollowerCount(followerResult.count || 0);
       setFollowingCount(followingResult.count || 0);
     } catch (err: any) {
-      console.error('Error loading profile:', err);
       setError('Failed to load profile');
     } finally {
       setLoading(false);
@@ -193,7 +192,6 @@ export function Profile() {
 
       setCreatedHasMore((data || []).length === ITEMS_PER_PAGE);
     } catch (err: any) {
-      console.error('Error loading recipes:', err);
       setError('Failed to load recipes');
     } finally {
       setCreatedLoading(false);
@@ -252,7 +250,6 @@ export function Profile() {
 
       setRemixedHasMore((data || []).length === ITEMS_PER_PAGE);
     } catch (err: any) {
-      console.error('Error loading remixed recipes:', err);
       setError('Failed to load remixed recipes');
     } finally {
       setRemixedLoading(false);
@@ -307,8 +304,6 @@ export function Profile() {
     setError('');
 
     try {
-      console.log('🔄 Starting avatar upload for user:', user.id);
-
       // Prepare file path
       const fileExt = avatarFile.name.split('.').pop();
       const fileName = `${user.id}-${Date.now()}.${fileExt}`;
@@ -333,8 +328,6 @@ export function Profile() {
         return;
       }
 
-      console.log('✅ Got public URL:', publicUrl);
-
       // Update profile in database
       const { error: updateError } = await supabase
         .from('profiles')
@@ -348,15 +341,12 @@ export function Profile() {
         throw new Error('Failed to update profile: ' + updateError.message);
       }
 
-      console.log('✅ Profile updated successfully');
-
       // Update local state only if everything succeeded
       setProfile(prev => prev ? { ...prev, avatar_url: publicUrl } : prev);
       setShowAvatarModal(false);
       setAvatarFile(null);
       setAvatarPreview(null);
     } catch (err: any) {
-      console.error('Error uploading avatar:', err);
       setError('Failed to upload avatar: ' + (err.message || 'Unknown error'));
     } finally {
       setUploadingAvatar(false);
@@ -372,9 +362,9 @@ export function Profile() {
           title: `${profile?.display_name}'s Profile on OmNom`,
           url: profileUrl
         });
-      } catch (error) {
-        console.log('Error sharing:', error);
-      }
+          } catch (error) {
+      // Silent error handling
+    }
     } else {
       navigator.clipboard.writeText(profileUrl);
       // You could show a toast notification here

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Plus, Minus, Clock, Tag, ArrowLeft, Save, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Minus, Clock, Tag, ArrowLeft, Save, Trash2, AlertTriangle, Upload, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthContext } from '../context/AuthContext';
 import { useRecipeAccess } from '../hooks/useRecipeAccess';
@@ -30,6 +30,11 @@ export function EditRecipe() {
     tags: [''],
     image_url: '',
   });
+
+  // Image upload states
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Populate form when recipe is loaded
   useEffect(() => {
@@ -60,6 +65,15 @@ export function EditRecipe() {
     setSuccess('');
 
     try {
+      // Upload image if selected
+      let imageUrl = formData.image_url.trim() || null;
+      if (imageFile) {
+        imageUrl = await uploadImage();
+        if (!imageUrl) {
+          throw new Error('Failed to upload image');
+        }
+      }
+
       const recipeData = {
         title: formData.title.trim() || 'Untitled Recipe',
         prep_time: formData.prep_time || 0,
@@ -68,7 +82,7 @@ export function EditRecipe() {
         ingredients: formData.ingredients.filter(i => i.trim()),
         instructions: formData.instructions.filter(i => i.trim()),
         tags: formData.tags.filter(t => t.trim()),
-        image_url: formData.image_url.trim() || null,
+        image_url: imageUrl,
         updated_at: new Date().toISOString(),
       };
 
@@ -103,7 +117,6 @@ export function EditRecipe() {
       }, 1500);
 
     } catch (err: any) {
-      console.error('Error updating recipe:', err);
       setError('Failed to update recipe');
     } finally {
       setSaving(false);
@@ -154,7 +167,6 @@ export function EditRecipe() {
       }, 1500);
 
     } catch (err: any) {
-      console.error('Error deleting recipe:', err);
       setError('Failed to delete recipe');
     } finally {
       setDeleting(false);
@@ -180,6 +192,69 @@ export function EditRecipe() {
       ...prev,
       [field]: prev[field].map((item, i) => i === index ? value : item)
     }));
+  };
+
+  const handleImageFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+
+    // Validate file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File size must be less than 10MB');
+      return;
+    }
+
+    setImageFile(file);
+    setError('');
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImagePreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const uploadImage = async (): Promise<string | null> => {
+    if (!user || !imageFile) return null;
+
+    setUploadingImage(true);
+    setError('');
+
+    try {
+      // Upload to Supabase Storage
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('recipe-images')
+        .upload(fileName, imageFile);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('recipe-images')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (err: any) {
+      setError('Failed to upload image: ' + (err.message || 'Unknown error'));
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setFormData(prev => ({ ...prev, image_url: '' }));
   };
 
   // Show loading while checking authorization
@@ -342,17 +417,73 @@ export function EditRecipe() {
               </div>
 
               <div>
-                <label htmlFor="image_url" className="block text-sm font-medium text-gray-700 mb-2">
-                  Image URL (optional)
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Recipe Image (optional)
                 </label>
-                <input
-                  type="url"
-                  id="image_url"
-                  value={formData.image_url}
-                  onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                  placeholder="https://example.com/image.jpg"
-                />
+                
+                {/* Image Preview */}
+                {(imagePreview || formData.image_url) && (
+                  <div className="mb-4 relative">
+                    <div className="w-full h-48 bg-gray-100 rounded-lg overflow-hidden">
+                      <img
+                        src={imagePreview || formData.image_url}
+                        alt="Recipe preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
+                {/* File Upload */}
+                {!imagePreview && !formData.image_url && (
+                  <div className="space-y-4">
+                    <div className="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-orange-400 transition-colors">
+                      <div className="space-y-1 text-center">
+                        <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                        <div className="flex text-sm text-gray-600">
+                          <label
+                            htmlFor="recipe-image-upload-edit"
+                            className="relative cursor-pointer bg-white rounded-md font-medium text-orange-600 hover:text-orange-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-orange-500"
+                          >
+                            <span>Upload an image</span>
+                            <input
+                              id="recipe-image-upload-edit"
+                              name="recipe-image-upload-edit"
+                              type="file"
+                              className="sr-only"
+                              accept="image/*"
+                              onChange={handleImageFileChange}
+                            />
+                          </label>
+                          <p className="pl-1">or drag and drop</p>
+                        </div>
+                        <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* URL Input (fallback) */}
+                <div className="mt-4">
+                  <label htmlFor="image_url" className="block text-sm font-medium text-gray-700 mb-2">
+                    Or provide an image URL
+                  </label>
+                  <input
+                    type="url"
+                    id="image_url"
+                    value={formData.image_url}
+                    onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    placeholder="https://example.com/image.jpg"
+                  />
+                </div>
               </div>
             </div>
 
@@ -491,11 +622,11 @@ export function EditRecipe() {
                 type="submit"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                disabled={saving}
+                disabled={saving || uploadingImage}
                 className="flex items-center space-x-2 bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-4 h-4" />
-                <span>{saving ? 'Saving...' : 'Save Changes'}</span>
+                <span>{saving ? 'Saving...' : uploadingImage ? 'Uploading Image...' : 'Save Changes'}</span>
               </motion.button>
             </div>
           </form>

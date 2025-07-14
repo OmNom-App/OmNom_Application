@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Plus, Minus, Clock, Tag, ArrowLeft, Shuffle, ExternalLink } from 'lucide-react';
+import { Plus, Minus, Clock, Tag, ArrowLeft, Shuffle, ExternalLink, Upload, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthContext } from '../context/AuthContext';
 
@@ -30,6 +30,11 @@ export function CreateRecipe() {
     image_url: '',
   });
 
+  // Image upload states
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
   const cuisineOptions = ['italian', 'mexican', 'asian', 'indian', 'mediterranean', 'american', 'other'];
   const dietaryOptions = ['vegan', 'vegetarian', 'gluten-free', 'dairy-free', 'keto', 'paleo', 'pescatarian', 'other'];
 
@@ -49,8 +54,14 @@ export function CreateRecipe() {
     setSuccess('');
 
     try {
-      console.log('🔄 Creating recipe...');
-      console.log('👤 User ID:', user.id);
+      // Upload image if selected
+      let imageUrl = formData.image_url.trim() || null;
+      if (imageFile) {
+        imageUrl = await uploadImage();
+        if (!imageUrl) {
+          throw new Error('Failed to upload image');
+        }
+      }
 
       // Prepare recipe data - NO PROFILE CHECK
       const recipeData = {
@@ -67,16 +78,13 @@ export function CreateRecipe() {
         tags: formData.tags.filter(t => t.trim()),
         cuisine: formData.cuisine,
         dietary: formData.dietary,
-        image_url: formData.image_url.trim() || null,
+        image_url: imageUrl,
         author_id: user.id, // Direct user ID - no profile check
         is_remix: isRemix,
         original_recipe_id: isRemix ? originalRecipe?.id : null,
       };
 
-      console.log('📝 Recipe data:', recipeData);
-
       // Insert recipe directly - NO PROFILE OPERATIONS
-      console.log('🔄 Inserting recipe directly...');
       const { data: recipe, error: recipeError } = await supabase
         .from('recipes')
         .insert(recipeData)
@@ -84,11 +92,8 @@ export function CreateRecipe() {
         .single();
 
       if (recipeError) {
-        console.error('❌ Recipe insert error:', recipeError);
         throw new Error(`Recipe creation failed: ${recipeError.message}`);
       }
-
-      console.log('✅ Recipe created successfully:', recipe);
       setSuccess('Recipe created successfully!');
 
       // Redirect to the new recipe
@@ -97,7 +102,6 @@ export function CreateRecipe() {
       }, 1000);
 
     } catch (err: any) {
-      console.error('❌ Recipe creation failed:', err);
       setError(err.message || 'Failed to create recipe');
     } finally {
       setLoading(false);
@@ -132,6 +136,69 @@ export function CreateRecipe() {
         ? prev.dietary.filter((d: string) => d !== diet)
         : [...prev.dietary, diet]
     }));
+  };
+
+  const handleImageFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+
+    // Validate file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File size must be less than 10MB');
+      return;
+    }
+
+    setImageFile(file);
+    setError('');
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImagePreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const uploadImage = async (): Promise<string | null> => {
+    if (!user || !imageFile) return null;
+
+    setUploadingImage(true);
+    setError('');
+
+    try {
+      // Upload to Supabase Storage
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('recipe-images')
+        .upload(fileName, imageFile);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('recipe-images')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (err: any) {
+      setError('Failed to upload image: ' + (err.message || 'Unknown error'));
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setFormData(prev => ({ ...prev, image_url: '' }));
   };
 
   return (
@@ -318,15 +385,71 @@ export function CreateRecipe() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Image URL (optional)
+                  Recipe Image (optional)
                 </label>
-                <input
-                  type="url"
-                  value={formData.image_url}
-                  onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
-                  placeholder="https://example.com/image.jpg"
-                />
+                
+                {/* Image Preview */}
+                {(imagePreview || formData.image_url) && (
+                  <div className="mb-4 relative">
+                    <div className="w-full h-48 bg-gray-100 rounded-lg overflow-hidden">
+                      <img
+                        src={imagePreview || formData.image_url}
+                        alt="Recipe preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
+                {/* File Upload */}
+                {!imagePreview && !formData.image_url && (
+                  <div className="space-y-4">
+                    <div className="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-orange-400 transition-colors">
+                      <div className="space-y-1 text-center">
+                        <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                        <div className="flex text-sm text-gray-600">
+                          <label
+                            htmlFor="recipe-image-upload"
+                            className="relative cursor-pointer bg-white rounded-md font-medium text-orange-600 hover:text-orange-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-orange-500"
+                          >
+                            <span>Upload an image</span>
+                            <input
+                              id="recipe-image-upload"
+                              name="recipe-image-upload"
+                              type="file"
+                              className="sr-only"
+                              accept="image/*"
+                              onChange={handleImageFileChange}
+                            />
+                          </label>
+                          <p className="pl-1">or drag and drop</p>
+                        </div>
+                        <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* URL Input (fallback) */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Or provide an image URL
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.image_url}
+                    onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
+                    placeholder="https://example.com/image.jpg"
+                  />
+                </div>
               </div>
             </div>
 
@@ -456,10 +579,10 @@ export function CreateRecipe() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 type="submit"
-                disabled={loading}
+                disabled={loading || uploadingImage}
                 className="px-6 py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-lg hover:from-orange-600 hover:to-pink-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Creating Recipe...' : 'Create Recipe'}
+                {loading ? 'Creating Recipe...' : uploadingImage ? 'Uploading Image...' : 'Create Recipe'}
               </motion.button>
             </div>
           </form>

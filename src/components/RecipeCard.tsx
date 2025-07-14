@@ -39,6 +39,8 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
   const [isSaved, setIsSaved] = useState(false);
   const [likeCount, setLikeCount] = useState(recipe.like_count || 0);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [actionType, setActionType] = useState<'like' | 'save' | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -82,13 +84,8 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
     e.stopPropagation();
     
     if (!user) {
-      // Show a more informative message
-      const shouldSignUp = window.confirm(
-        'Sign up to like recipes and save your favorites!'
-      );
-      if (shouldSignUp) {
-        navigate('/signup');
-      }
+      setActionType('like');
+      setShowActionModal(true);
       return;
     }
 
@@ -115,13 +112,8 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
     e.stopPropagation();
     
     if (!user) {
-      // Show a more informative message
-      const shouldSignUp = window.confirm(
-        'Sign up to save recipes and create your own collection!'
-      );
-      if (shouldSignUp) {
-        navigate('/signup');
-      }
+      setActionType('save');
+      setShowActionModal(true);
       return;
     }
 
@@ -313,6 +305,50 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
             </button>
             <button
               onClick={() => setShowSignUpModal(false)}
+              className="flex-1 border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-all duration-200"
+            >
+              Maybe Later
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Action Modal for Like/Save */}
+      <Modal
+        isOpen={showActionModal}
+        onClose={() => setShowActionModal(false)}
+        title={actionType === 'like' ? 'Like This Recipe' : 'Save This Recipe'}
+        showCloseButton={true}
+      >
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            {actionType === 'like' ? (
+              <Heart className="w-8 h-8 text-white" />
+            ) : (
+              <Bookmark className="w-8 h-8 text-white" />
+            )}
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">
+            {actionType === 'like' ? 'Like This Recipe' : 'Save This Recipe'}
+          </h3>
+          <p className="text-gray-600 mb-6">
+            {actionType === 'like' 
+              ? 'Sign up to like recipes and show your appreciation for great cooking!'
+              : 'Sign up to save recipes and build your personal collection of favorites!'
+            }
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => {
+                setShowActionModal(false);
+                navigate('/signup');
+              }}
+              className="flex-1 bg-gradient-to-r from-orange-500 to-pink-500 text-white px-6 py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-pink-600 transition-all duration-200"
+            >
+              Sign Up Now
+            </button>
+            <button
+              onClick={() => setShowActionModal(false)}
               className="flex-1 border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-all duration-200"
             >
               Maybe Later

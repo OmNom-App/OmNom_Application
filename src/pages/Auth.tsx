@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { ChefHat, Mail, Lock, Eye, EyeOff, User } from 'lucide-react';
 import { useAuthContext } from '../context/AuthContext';
 import { useAuthRedirect } from '../hooks/useAuthRedirect';
-import { ParticleBackground } from '../components/ParticleBackground';
+
 
 interface AuthProps {
   mode: 'login' | 'signup';
@@ -15,9 +15,11 @@ export function Auth({ mode }: AuthProps) {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
+    confirmPassword: '',
     fullName: '',
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -29,6 +31,13 @@ export function Auth({ mode }: AuthProps) {
     setLoading(true);
     setError('');
 
+    // Validate password confirmation for signup
+    if (mode === 'signup' && formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+
     try {
       const { error } = mode === 'login' 
         ? await signIn(formData.email, formData.password)
@@ -37,12 +46,10 @@ export function Auth({ mode }: AuthProps) {
       if (error) {
         setError(error.message);
       } else {
-        console.log(`✅ ${mode} successful`);
         // Redirect will be handled by useAuthRedirect hook
       }
     } catch (err) {
       setError('An unexpected error occurred');
-      console.error(`❌ ${mode} error:`, err);
     } finally {
       setLoading(false);
     }
@@ -57,8 +64,6 @@ export function Auth({ mode }: AuthProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-pink-50 relative flex items-center justify-center px-4">
-      <ParticleBackground />
-      
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -152,6 +157,41 @@ export function Auth({ mode }: AuthProps) {
               </div>
             </div>
 
+            {mode === 'signup' && (
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    name="confirmPassword"
+                    id="confirmPassword"
+                    required
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    className={`w-full pl-10 pr-12 py-3 text-base md:text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent ${
+                      formData.confirmPassword && formData.password !== formData.confirmPassword
+                        ? 'border-red-300 focus:ring-red-300'
+                        : 'border-gray-200'
+                    }`}
+                    placeholder="Confirm your password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+                {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                  <p className="text-red-500 text-sm mt-1">Passwords do not match</p>
+                )}
+              </div>
+            )}
+
             {error && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -166,7 +206,7 @@ export function Auth({ mode }: AuthProps) {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               type="submit"
-              disabled={loading}
+              disabled={loading || (mode === 'signup' && formData.password !== formData.confirmPassword)}
               className="w-full bg-gradient-to-r from-orange-500 to-pink-500 text-white py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-pink-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Please wait...' : (mode === 'login' ? 'Sign In' : 'Create Account')}

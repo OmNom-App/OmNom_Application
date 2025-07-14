@@ -53,7 +53,6 @@ class ApiClient {
       const response = await fetch(url, { headers });
       return this.handleResponse<T>(response);
     } catch (error) {
-      console.error('API GET Error:', error);
       return { status: 500, error: 'Network error' };
     }
   }
@@ -68,7 +67,6 @@ class ApiClient {
       });
       return this.handleResponse<T>(response);
     } catch (error) {
-      console.error('API POST Error:', error);
       return { status: 500, error: 'Network error' };
     }
   }
@@ -83,7 +81,6 @@ class ApiClient {
       });
       return this.handleResponse<T>(response);
     } catch (error) {
-      console.error('API PUT Error:', error);
       return { status: 500, error: 'Network error' };
     }
   }
@@ -97,7 +94,6 @@ class ApiClient {
       });
       return this.handleResponse<T>(response);
     } catch (error) {
-      console.error('API DELETE Error:', error);
       return { status: 500, error: 'Network error' };
     }
   }

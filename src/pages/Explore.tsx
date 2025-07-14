@@ -119,26 +119,13 @@ export function Explore() {
   // Only load recipes when auth is not loading and we have stable dependencies
   useEffect(() => {
     if (!authLoading) {
-      console.log('🔍 Explore: Auth loading finished, loading recipes...');
       loadRecipes(true);
     }
   }, [sortBy, appliedFilters, searchQuery, authLoading]);
 
-  // Debug auth state changes
-  useEffect(() => {
-    console.log('🔍 Explore: Auth state changed', { 
-      user: user?.email, 
-      authLoading, 
-      recipesCount: recipes.length 
-    });
-  }, [user, authLoading, recipes.length]);
-
   const loadRecipes = async (reset = false) => {
-    console.log('🔍 Loading recipes...', { reset, page, searchQuery, appliedFilters, sortBy });
-    
     // Don't reload if we already have recipes and auth is just refreshing
     if (!reset && recipes.length > 0 && authLoading) {
-      console.log('🔍 Skipping recipe reload during auth refresh');
       return;
     }
     
@@ -203,15 +190,11 @@ export function Explore() {
 
     // If we have ingredient filters, fetch all recipes for client-side filtering
     if (appliedFilters.ingredients && appliedFilters.ingredients.trim()) {
-      console.log('🔍 Fetching all recipes for client-side ingredient filtering');
       const { data: allData, error: allError } = await query;
       
       if (allError) {
-        console.error('❌ Error loading all recipes:', allError);
         return;
       }
-      
-      console.log('✅ All recipes loaded:', allData?.length || 0, 'recipes');
       
       // Apply client-side ingredient filtering
       const filteredRecipes = filterRecipesByIngredients(allData || [], appliedFilters.ingredients);
@@ -237,15 +220,12 @@ export function Explore() {
       setHasMore(endIndex < filteredRecipes.length);
     } else {
       // Normal server-side pagination
-      console.log('🔍 Executing query with range:', currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE - 1);
-      
       let { data, error } = await query
         .range(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE - 1);
 
       if (error) {
-        console.error('❌ Error loading recipes:', error);
+        // Silent error handling
       } else {
-        console.log('✅ Recipes loaded:', data?.length || 0, 'recipes');
         if (reset) {
           setRecipes(data || []);
           setPage(0);
@@ -360,9 +340,9 @@ export function Explore() {
           title: 'Check out this recipe on OmNom!',
           url: `${window.location.origin}/recipe/${recipeId}`
         });
-      } catch (error) {
-        console.log('Error sharing:', error);
-      }
+          } catch (error) {
+      // Silent error handling
+    }
     } else {
       // Fallback: copy to clipboard
       navigator.clipboard.writeText(`${window.location.origin}/recipe/${recipeId}`);
@@ -401,7 +381,8 @@ export function Explore() {
         </div>
 
         {/* Search and Controls */}
-        <div className="bg-white/70 backdrop-blur-sm rounded-xl p-6 border border-orange-100 mb-8">
+        {user && (
+          <div className="bg-white/70 backdrop-blur-sm rounded-xl p-6 border border-orange-100 mb-8">
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search Bar */}
             <div className="flex-1">
@@ -575,7 +556,8 @@ export function Explore() {
               </div>
             </motion.div>
           )}
-        </div>
+          </div>
+        )}
 
         {/* Search Results Header */}
         {searchQuery && (

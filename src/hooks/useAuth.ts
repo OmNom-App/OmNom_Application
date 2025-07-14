@@ -15,7 +15,7 @@ export function useAuth() {
         setSession(session);
         setUser(session?.user ?? null);
       } catch (error) {
-        console.error('Error getting initial session:', error);
+        // Silent error handling
       } finally {
         setLoading(false);
       }
@@ -26,8 +26,6 @@ export function useAuth() {
     // Listen for auth changes - MUST be non-blocking to prevent deadlocks
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('Auth state change:', event, 'User:', session?.user?.email);
-        
         // Set state immediately (non-blocking)
         setSession(session);
         setUser(session?.user ?? null);
@@ -43,7 +41,7 @@ export function useAuth() {
                            session.user.email?.split('@')[0] || 'Chef',
             }).then(({ error }) => {
               if (error) {
-                console.error('Error updating profile:', error);
+                // Silent error handling
               }
             });
           }, 0);
@@ -54,8 +52,6 @@ export function useAuth() {
     // Handle tab visibility changes - refresh session when tab becomes visible
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        console.log('Tab became visible, refreshing session...');
-        
         // Make it non-blocking to prevent deadlocks
         setTimeout(async () => {
           try {
@@ -63,35 +59,27 @@ export function useAuth() {
             const { data: { session: currentSession } } = await supabase.auth.getSession();
             
             if (!currentSession || !currentSession.user) {
-              console.log('No valid session found, attempting refresh...');
-              
               // Try to refresh the session first
               const refreshedSession = await refreshSession();
               
               if (refreshedSession) {
-                console.log('Session refreshed successfully');
                 setSession(refreshedSession);
                 setUser(refreshedSession.user);
               } else {
                 // If refresh fails, try force recovery
-                console.log('Session refresh failed, trying force recovery...');
                 const recoveredSession = await forceSessionRecovery();
                 
                 if (recoveredSession) {
-                  console.log('Session recovered successfully');
                   setSession(recoveredSession);
                   setUser(recoveredSession.user);
                 } else {
-                  console.log('No session found on tab visibility change');
                   setSession(null);
                   setUser(null);
                 }
               }
-            } else {
-              console.log('Valid session already exists, no refresh needed');
             }
           } catch (error) {
-            console.error('Error refreshing session on visibility change:', error);
+            // Silent error handling
           }
         }, 0);
       }
@@ -110,7 +98,6 @@ export function useAuth() {
             
             // If we have a session but no user, or vice versa, refresh
             if ((currentSession && !currentUser) || (!currentSession && currentUser)) {
-              console.log('Session/user mismatch detected, refreshing...');
               const refreshedSession = await refreshSession();
               if (refreshedSession) {
                 setSession(refreshedSession);
@@ -122,7 +109,6 @@ export function useAuth() {
             if (currentUser && currentSession && currentSession.expires_at) {
               const now = Date.now() / 1000;
               if (currentSession.expires_at < now) {
-                console.log('Session expired, refreshing...');
                 const refreshedSession = await refreshSession();
                 if (refreshedSession) {
                   setSession(refreshedSession);
@@ -131,7 +117,7 @@ export function useAuth() {
               }
             }
           } catch (error) {
-            console.error('Error during periodic session check:', error);
+            // Silent error handling
           }
         }, 0);
       }
@@ -153,7 +139,6 @@ export function useAuth() {
       });
       return { error };
     } catch (error) {
-      console.error('Sign in error:', error);
       return { error };
     } finally {
       setLoading(false);
@@ -174,7 +159,6 @@ export function useAuth() {
       });
       return { error };
     } catch (error) {
-      console.error('Sign up error:', error);
       return { error };
     } finally {
       setLoading(false);
@@ -196,7 +180,6 @@ export function useAuth() {
       
       return { error };
     } catch (error) {
-      console.error('Sign out error:', error);
       return { error: error instanceof Error ? error : new Error('Unknown error') };
     } finally {
       setLoading(false);

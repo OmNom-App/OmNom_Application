@@ -82,7 +82,6 @@ export function Settings() {
       setDisplayName(data.display_name || '');
       setBio(data.bio || '');
     } catch (err: any) {
-      console.error('Error loading profile:', err);
       setError('Failed to load profile');
     } finally {
       setLoading(false);
@@ -113,7 +112,6 @@ export function Settings() {
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      console.error('Error updating profile:', err);
       setError('Failed to update profile');
     } finally {
       setSaving(false);
@@ -152,7 +150,6 @@ export function Settings() {
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      console.error('Error updating password:', err);
       setError('Failed to update password');
     } finally {
       setSaving(false);
@@ -225,7 +222,6 @@ export function Settings() {
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      console.error('Error uploading avatar:', err);
       setError('Failed to upload avatar');
     } finally {
       setUploadingAvatar(false);
@@ -254,7 +250,6 @@ export function Settings() {
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      console.error('Error removing avatar:', err);
       setError('Failed to remove avatar');
     } finally {
       setUploadingAvatar(false);

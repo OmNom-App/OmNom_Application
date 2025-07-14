@@ -46,7 +46,6 @@ export function FollowedUsers({ userId, className = '' }: FollowedUsersProps) {
       const users = data?.map(follow => follow.profiles).filter(Boolean) || [];
       setFollowedUsers(users as unknown as FollowedUser[]);
     } catch (err: unknown) {
-      console.error('Error loading followed users:', err);
       setError('Failed to load followed users');
     } finally {
       setLoading(false);

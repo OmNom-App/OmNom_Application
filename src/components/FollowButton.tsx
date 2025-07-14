@@ -26,12 +26,12 @@ export function FollowButton({ targetUserId, className = '' }: FollowButtonProps
         .single();
 
       if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-        console.error('Error checking follow status:', error);
+        // Silent error handling
       }
 
       setIsFollowing(!!data);
     } catch (error) {
-      console.error('Error checking follow status:', error);
+      // Silent error handling
     } finally {
       setLoading(false);
     }
@@ -76,7 +76,7 @@ export function FollowButton({ targetUserId, className = '' }: FollowButtonProps
         setIsFollowing(true);
       }
     } catch (error) {
-      console.error('Error following/unfollowing:', error);
+      // Silent error handling
     } finally {
       setFollowLoading(false);
     }

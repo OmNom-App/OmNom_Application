@@ -129,8 +129,6 @@ export function Saved() {
     setLoading(true);
     
     try {
-      console.log('Loading saved recipes for user:', user.id);
-      
       // First, let's check if the user has any saves at all
       const { data: savesCheck, error: savesError } = await supabase
         .from('saves')
@@ -138,20 +136,14 @@ export function Saved() {
         .eq('user_id', user.id);
       
       if (savesError) {
-        console.error('Error checking saves:', savesError);
         throw savesError;
       }
       
-      console.log('User saves found:', savesCheck?.length || 0);
-      
-              if (!savesCheck || savesCheck.length === 0) {
-          console.log('No saves found for user');
-          setSavedRecipes([]);
-          setLoading(false);
-          return;
-        }
-
-        console.log('Found saves, loading recipe details...');
+      if (!savesCheck || savesCheck.length === 0) {
+        setSavedRecipes([]);
+        setLoading(false);
+        return;
+      }
 
       const { data, error } = await supabase
         .from('saves')
@@ -179,8 +171,6 @@ export function Saved() {
 
       if (error) throw error;
 
-      console.log('Raw data from Supabase:', data);
-
       const validSaves = (data || [])
         .filter(save => save.recipes)
         .map(save => {
@@ -188,11 +178,8 @@ export function Saved() {
           const recipe = Array.isArray(save.recipes) ? save.recipes[0] : save.recipes;
           
           if (!recipe) {
-            console.warn('No recipe found for save:', save);
             return null;
           }
-          
-          console.log('Recipe author_id:', recipe.author_id);
           
           return {
             id: save.id,
@@ -217,8 +204,6 @@ export function Saved() {
         })
         .filter(Boolean) as SavedRecipe[];
       
-      console.log('Processed saves:', validSaves);
-      
       // Fetch profiles for each recipe
       const savesWithProfiles = await Promise.all(
         validSaves.map(async (save) => {
@@ -237,12 +222,10 @@ export function Saved() {
           };
         })
       );
-      
-      console.log('Saves with profiles:', savesWithProfiles);
       setSavedRecipes(savesWithProfiles);
       calculateStats(savesWithProfiles);
     } catch (error) {
-      console.error('Error loading saved recipes:', error);
+      // Silent error handling
     } finally {
       setLoading(false);
     }
@@ -403,7 +386,7 @@ export function Saved() {
       setSelectedRecipes(new Set());
       setBulkMode(false);
     } catch (error) {
-      console.error('Error bulk unsaving recipes:', error);
+      // Silent error handling
     }
   };
 

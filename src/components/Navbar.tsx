@@ -22,14 +22,11 @@ export function Navbar() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleSignOut = async () => {
-    console.log('🔄 Logout button clicked');
-    
     // Close mobile menu immediately
     setIsMenuOpen(false);
     
     // Add timeout to prevent hanging
     const logoutTimeout = setTimeout(() => {
-      console.log('⚠️ Logout timeout reached, forcing redirect');
       localStorage.clear();
       sessionStorage.clear();
       window.location.href = '/';
@@ -41,19 +38,16 @@ export function Navbar() {
       clearTimeout(logoutTimeout);
       
       if (error) {
-        console.error('❌ Sign out failed:', error);
         // Force clear any local state and redirect
         window.location.href = '/';
         return;
       }
       
-      console.log('✅ Sign out successful');
       // Navigate to home page after successful logout
       navigate('/');
       
     } catch (err) {
       clearTimeout(logoutTimeout);
-      console.error('❌ Unexpected error during logout:', err);
       // Force redirect to home and clear any cached data
       localStorage.clear();
       sessionStorage.clear();
