@@ -250,11 +250,11 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleLike}
-                className={`flex items-center space-x-1 ${
+                className={`flex items-center space-x-1 p-2 rounded-lg ${
                   isLiked ? 'text-red-500' : 'text-gray-400'
                 } hover:text-red-500 transition-colors`}
               >
-                <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+                <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
                 <span className="text-xs font-medium">{likeCount}</span>
               </motion.button>
 
@@ -262,11 +262,11 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleSave}
-                className={`${
+                className={`p-2 rounded-lg ${
                   isSaved ? 'text-orange-500' : 'text-gray-400'
                 } hover:text-orange-500 transition-colors`}
               >
-                <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
+                <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
               </motion.button>
 
               {onShare && (
@@ -274,9 +274,9 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={onShare}
-                  className="text-gray-400 hover:text-blue-500 transition-colors"
+                  className="p-2 rounded-lg text-gray-400 hover:text-blue-500 transition-colors"
                 >
-                  <Share2 className="w-4 h-4" />
+                  <Share2 className="w-5 h-5" />
                 </motion.button>
               )}
             </div>

@@ -404,25 +404,27 @@ export function Explore() {
         <div className="bg-white/70 backdrop-blur-sm rounded-xl p-6 border border-orange-100 mb-8">
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search Bar */}
-            <div className="flex-1 relative">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      setSearchQuery(searchInput);
-                    }
-                  }}
-                  placeholder="Search recipes, ingredients, or tags..."
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
-                />
+            <div className="flex-1">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="text"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        setSearchQuery(searchInput);
+                      }
+                    }}
+                    placeholder="Search recipes, ingredients, or tags..."
+                    className="w-full pl-10 pr-4 py-3 text-base md:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={() => setSearchQuery(searchInput)}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-orange-500 text-white px-3 py-1 rounded hover:bg-orange-600 transition-colors"
+                  className="bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition-colors font-medium"
                 >
                   Search
                 </button>
@@ -430,11 +432,11 @@ export function Explore() {
             </div>
 
             {/* Sort and Filter Controls */}
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
-                className="px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
+                className="px-4 py-3 text-base md:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
               >
                 <option value="created_desc">Newest (Date Descending)</option>
                 <option value="created_asc">Oldest (Date Ascending)</option>
@@ -444,7 +446,7 @@ export function Explore() {
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center space-x-2 px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex items-center justify-center space-x-2 px-4 py-3 text-base md:text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <SlidersHorizontal className="w-5 h-5" />
                 <span>Filters</span>
@@ -577,19 +579,19 @@ export function Explore() {
 
         {/* Search Results Header */}
         {searchQuery && (
-          <div className="mb-6 flex items-center justify-between">
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center space-x-2">
               <Search className="w-5 h-5 text-gray-500" />
-              <span className="text-gray-600">
+              <span className="text-gray-600 text-sm sm:text-base">
                 Search results for "{searchQuery}"
               </span>
             </div>
             <button
               onClick={clearSearch}
-              className="flex items-center space-x-2 text-orange-500 hover:text-orange-600 transition-colors"
+              className="flex items-center justify-center space-x-2 text-orange-500 hover:text-orange-600 transition-colors px-3 py-2 rounded-lg hover:bg-orange-50"
             >
               <X className="w-4 h-4" />
-              <span>Clear Search</span>
+              <span className="text-sm">Clear Search</span>
             </button>
           </div>
         )}

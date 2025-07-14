@@ -579,14 +579,14 @@ export function RecipeDetail() {
                 <>
                   <button 
                     onClick={() => navigate(`/edit-recipe/${recipe.id}`)}
-                    className="bg-white/90 backdrop-blur-sm p-2 rounded-full hover:bg-white transition-colors"
+                    className="bg-white/90 backdrop-blur-sm p-3 rounded-full hover:bg-white transition-colors"
                     title="Edit Recipe"
                   >
                     <Edit className="w-5 h-5 text-gray-600" />
                   </button>
                   <button 
                     onClick={handleDeleteRecipe}
-                    className="bg-white/90 backdrop-blur-sm p-2 rounded-full hover:bg-red-50 transition-colors"
+                    className="bg-white/90 backdrop-blur-sm p-3 rounded-full hover:bg-red-50 transition-colors"
                     title="Delete Recipe"
                   >
                     <Trash2 className="w-5 h-5 text-red-600" />
@@ -595,7 +595,7 @@ export function RecipeDetail() {
               )}
               <button 
                 onClick={handleShare}
-                className="bg-white/90 backdrop-blur-sm p-2 rounded-full hover:bg-white transition-colors"
+                className="bg-white/90 backdrop-blur-sm p-3 rounded-full hover:bg-white transition-colors"
               >
                 <Share2 className="w-5 h-5 text-gray-600" />
               </button>
@@ -813,16 +813,16 @@ export function RecipeDetail() {
           transition={{ delay: 0.4 }}
           className="mt-8 bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-orange-100"
         >
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-            <MessageCircle className="w-6 h-6 mr-2 text-orange-500" />
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-6 flex items-center">
+            <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-orange-500" />
             Comments ({commentCount})
           </h2>
 
           {/* Add Comment Form */}
           {user ? (
             <form onSubmit={handleAddComment} className="mb-8">
-              <div className="flex space-x-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center flex-shrink-0">
+              <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center flex-shrink-0 self-start">
                   <Users className="w-5 h-5 text-white" />
                 </div>
                 <div className="flex-1">
@@ -830,16 +830,16 @@ export function RecipeDetail() {
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     placeholder="Share your thoughts about this recipe..."
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none"
+                    className="w-full px-4 py-3 text-base border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none"
                     rows={3}
                   />
-                  <div className="flex justify-end mt-2">
+                  <div className="flex justify-end mt-3">
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       type="submit"
                       disabled={!newComment.trim() || commentLoading}
-                      className="flex items-center space-x-2 bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center space-x-2 bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                     >
                       <Send className="w-4 h-4" />
                       <span>{commentLoading ? 'Posting...' : 'Post Comment'}</span>
@@ -849,11 +849,11 @@ export function RecipeDetail() {
               </div>
             </form>
           ) : (
-            <div className="mb-8 p-4 bg-gray-50 rounded-lg text-center">
+            <div className="mb-8 p-6 bg-gray-50 rounded-lg text-center">
               <p className="text-gray-600 mb-4">Sign in to leave a comment</p>
               <Link
                 to="/login"
-                className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors"
+                className="bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition-colors font-medium"
               >
                 Sign In
               </Link>
@@ -869,8 +869,8 @@ export function RecipeDetail() {
               </div>
             ) : (
               comments.map((comment) => (
-                <div key={comment.id} className="flex space-x-4">
-                  <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center flex-shrink-0">
+                <div key={comment.id} className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+                  <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center flex-shrink-0 self-start">
                     {comment.profiles.avatar_url ? (
                       <img
                         src={comment.profiles.avatar_url}
@@ -883,28 +883,28 @@ export function RecipeDetail() {
                   </div>
                   <div className="flex-1">
                     <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-2 space-y-2 sm:space-y-0">
                         <Link
                           to={`/profile/${comment.user_id}`}
                           className="font-semibold text-gray-900 hover:text-orange-500 transition-colors"
                         >
                           {comment.profiles.display_name}
                         </Link>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center justify-between sm:justify-end space-x-3">
                           <span className="text-sm text-gray-500">
                             {format(new Date(comment.created_at), 'MMM d, yyyy')}
                           </span>
                           {user?.id === comment.user_id && (
                             <button
                               onClick={() => handleDeleteComment(comment.id)}
-                              className="text-gray-400 hover:text-red-500 transition-colors"
+                              className="text-gray-400 hover:text-red-500 transition-colors p-1"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}
                         </div>
                       </div>
-                      <p className="text-gray-700">{comment.content}</p>
+                      <p className="text-gray-700 text-sm sm:text-base leading-relaxed">{comment.content}</p>
                     </div>
                   </div>
                 </div>
