@@ -192,7 +192,7 @@ export function Navbar() {
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden"
+            className="md:hidden p-2"
           >
             {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </motion.button>
@@ -210,13 +210,13 @@ export function Navbar() {
             {user && (
               <form onSubmit={handleSearch}>
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search recipes..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-3 text-base border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent"
                   />
                 </div>
               </form>
@@ -224,38 +224,38 @@ export function Navbar() {
 
             {user ? (
               <div className="space-y-2">
-                <Link to="/create" className="flex items-center space-x-2 p-2">
+                <Link to="/create" className="flex items-center space-x-2 p-3">
                   <Plus className="w-5 h-5" />
                   <span>Create Recipe</span>
                 </Link>
-                <Link to="/explore" className="flex items-center space-x-2 p-2">
+                <Link to="/explore" className="flex items-center space-x-2 p-3">
                   <Search className="w-5 h-5" />
                   <span>Explore Recipes</span>
                 </Link>
-                <Link to="/saved" className="flex items-center space-x-2 p-2">
+                <Link to="/saved" className="flex items-center space-x-2 p-3">
                   <Bookmark className="w-5 h-5" />
                   <span>Saved Recipes</span>
                 </Link>
-                <Link to="/profile" className="flex items-center space-x-2 p-2">
+                <Link to="/profile" className="flex items-center space-x-2 p-3">
                   <User className="w-5 h-5" />
                   <span>Profile</span>
                 </Link>
-                <Link to="/settings" className="flex items-center space-x-2 p-2">
+                <Link to="/settings" className="flex items-center space-x-2 p-3">
                   <Settings className="w-5 h-5" />
                   <span>Settings</span>
                 </Link>
-                <button onClick={handleSignOut} className="flex items-center space-x-2 p-2 text-red-500">
+                <button onClick={handleSignOut} className="flex items-center space-x-2 p-3 text-red-500">
                   <LogOut className="w-5 h-5" />
                   <span>Sign Out</span>
                 </button>
               </div>
             ) : (
               <div className="space-y-2">
-                <Link to="/signup" className="block p-2 bg-orange-500 text-white rounded-lg text-center">
+                <Link to="/signup" className="block p-3 bg-orange-500 text-white rounded-lg text-center">
                   Sign Up
                 </Link>
-                <Link to="/pricing" className="block p-2">Pricing</Link>
-                <Link to="/login" className="block p-2">Login</Link>
+                <Link to="/pricing" className="block p-3">Pricing</Link>
+                <Link to="/login" className="block p-3">Login</Link>
               </div>
             )}
           </motion.div>

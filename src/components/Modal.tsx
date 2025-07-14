@@ -65,7 +65,7 @@ export function Modal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className={`relative bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden ${className}`}
+            className={`relative bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden ${className}`}
           >
             {/* Header */}
             {(title || showCloseButton) && (

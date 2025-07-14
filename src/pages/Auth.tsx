@@ -100,7 +100,7 @@ export function Auth({ mode }: AuthProps) {
                     required
                     value={formData.fullName}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-3 text-base md:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent"
                     placeholder="Enter your full name"
                   />
                 </div>
@@ -120,7 +120,7 @@ export function Auth({ mode }: AuthProps) {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-3 text-base md:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent"
                   placeholder="your@email.com"
                 />
               </div>
@@ -139,7 +139,7 @@ export function Auth({ mode }: AuthProps) {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent"
+                  className="w-full pl-10 pr-12 py-3 text-base md:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent"
                   placeholder="Enter your password"
                 />
                 <button
