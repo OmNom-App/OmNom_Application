@@ -34,12 +34,15 @@ interface Recipe {
   cook_time: number;
   difficulty: 'Easy' | 'Medium' | 'Hard';
   tags: string[];
+  dietary: string[];
+  cuisine: string;
   image_url: string | null;
   author_id: string;
   original_recipe_id: string | null;
   is_remix: boolean;
   created_at: string;
   updated_at: string;
+  like_count: number;
   profiles?: {
     display_name: string;
     avatar_url: string | null;
@@ -172,11 +175,13 @@ export function RecipeDetail() {
   const [commentCount, setCommentCount] = useState(0);
   const [newComment, setNewComment] = useState('');
   const [commentLoading, setCommentLoading] = useState(false);
-  const [showAllIngredients, setShowAllIngredients] = useState(false);
-  const [showAllInstructions, setShowAllInstructions] = useState(false);
+
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // Scroll to top when recipe ID changes
+    window.scrollTo(0, 0);
+    
     if (id) {
       loadRecipe();
       loadComments();
@@ -208,7 +213,7 @@ export function RecipeDetail() {
       if (error) throw error;
       setRecipe(data);
 
-      // Load interaction counts
+      // Load interaction counts (like_count is now part of recipe data)
       await loadInteractionCounts();
     } catch (err: any) {
       console.error('Error loading recipe:', err);
@@ -222,11 +227,7 @@ export function RecipeDetail() {
     if (!id) return;
 
     try {
-      const [likeResult, saveResult, commentResult] = await Promise.all([
-        supabase
-          .from('likes')
-          .select('*', { count: 'exact', head: true })
-          .eq('recipe_id', id),
+      const [saveResult, commentResult] = await Promise.all([
         supabase
           .from('saves')
           .select('*', { count: 'exact', head: true })
@@ -237,7 +238,8 @@ export function RecipeDetail() {
           .eq('recipe_id', id)
       ]);
 
-      setLikeCount(likeResult.count || 0);
+      // Use like_count from recipe data instead of counting likes table
+      setLikeCount(recipe?.like_count || 0);
       setSaveCount(saveResult.count || 0);
       setCommentCount(commentResult.count || 0);
     } catch (error) {
@@ -311,14 +313,14 @@ export function RecipeDetail() {
           .delete()
           .eq('user_id', user.id)
           .eq('recipe_id', id);
-        setLikeCount(prev => prev - 1);
       } else {
         await supabase
           .from('likes')
           .insert({ user_id: user.id, recipe_id: id });
-        setLikeCount(prev => prev + 1);
       }
       setIsLiked(!isLiked);
+      // Always refresh the recipe after like/unlike to get the latest like_count
+      await loadRecipe();
     } catch (error) {
       console.error('Error toggling like:', error);
     }
@@ -647,6 +649,35 @@ export function RecipeDetail() {
                     ))}
                   </div>
                 )}
+
+                {/* Dietary Information */}
+                {recipe.dietary && recipe.dietary.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-medium text-gray-700 mb-2">Dietary Restrictions</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {recipe.dietary.map((diet) => (
+                        <span
+                          key={diet}
+                          className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm capitalize"
+                        >
+                          {diet}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Cuisine Information */}
+                {recipe.cuisine && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-medium text-gray-700 mb-2">Cuisine Type</h3>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm capitalize">
+                        {recipe.cuisine}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -663,7 +694,7 @@ export function RecipeDetail() {
                     }`}
                   >
                     <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
-                    <span>{likeCount}</span>
+                    <span>{recipe.like_count}</span>
                   </motion.button>
 
                   <motion.button
@@ -741,26 +772,12 @@ export function RecipeDetail() {
             </h2>
             
             <div className="space-y-3">
-              {recipe.ingredients
-                .slice(0, showAllIngredients ? undefined : 8)
-                .map((ingredient, index) => (
+              {recipe.ingredients.map((ingredient, index) => (
                 <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
                   <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0"></div>
                   <span className="text-gray-700">{ingredient}</span>
                 </div>
               ))}
-              
-              {recipe.ingredients.length > 8 && (
-                <button
-                  onClick={() => setShowAllIngredients(!showAllIngredients)}
-                  className="text-orange-500 hover:text-orange-600 text-sm font-medium"
-                >
-                  {showAllIngredients 
-                    ? 'Show less' 
-                    : `Show ${recipe.ingredients.length - 8} more ingredients`
-                  }
-                </button>
-              )}
             </div>
           </motion.div>
 
@@ -777,9 +794,7 @@ export function RecipeDetail() {
             </h2>
             
             <div className="space-y-4">
-              {recipe.instructions
-                .slice(0, showAllInstructions ? undefined : 6)
-                .map((instruction, index) => (
+              {recipe.instructions.map((instruction, index) => (
                 <div key={index} className="flex space-x-4">
                   <div className="flex-shrink-0 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-semibold">
                     {index + 1}
@@ -787,18 +802,6 @@ export function RecipeDetail() {
                   <p className="text-gray-700 pt-1">{instruction}</p>
                 </div>
               ))}
-              
-              {recipe.instructions.length > 6 && (
-                <button
-                  onClick={() => setShowAllInstructions(!showAllInstructions)}
-                  className="text-orange-500 hover:text-orange-600 text-sm font-medium ml-12"
-                >
-                  {showAllInstructions 
-                    ? 'Show less' 
-                    : `Show ${recipe.instructions.length - 6} more steps`
-                  }
-                </button>
-              )}
             </div>
           </motion.div>
         </div>

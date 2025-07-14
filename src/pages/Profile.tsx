@@ -56,7 +56,7 @@ interface Recipe {
     display_name: string;
     avatar_url: string | null;
   };
-  like_count?: number;
+  like_count: number;
   save_count?: number;
 }
 
@@ -93,6 +93,9 @@ export function Profile() {
   // Removed periodic session check to prevent constant re-initialization
 
   useEffect(() => {
+    // Scroll to top when profile ID changes
+    window.scrollTo(0, 0);
+    
     if (profileId) {
       loadProfile();
       loadCreatedRecipes(true);
@@ -165,23 +168,17 @@ export function Profile() {
 
       if (error) throw error;
 
-      // Get like and save counts for each recipe
+      // Use like_count from database and get save counts
       const recipesWithCounts = await Promise.all(
         (data || []).map(async (recipe) => {
-          const [likeResult, saveResult] = await Promise.all([
-            supabase
-              .from('likes')
-              .select('*', { count: 'exact', head: true })
-              .eq('recipe_id', recipe.id),
-            supabase
-              .from('saves')
-              .select('*', { count: 'exact', head: true })
-              .eq('recipe_id', recipe.id)
-          ]);
+          const saveResult = await supabase
+            .from('saves')
+            .select('*', { count: 'exact', head: true })
+            .eq('recipe_id', recipe.id);
 
           return {
             ...recipe,
-            like_count: likeResult.count || 0,
+            like_count: recipe.like_count || 0,
             save_count: saveResult.count || 0
           };
         })
@@ -230,23 +227,17 @@ export function Profile() {
 
       if (error) throw error;
 
-      // Get like and save counts for each recipe
+      // Use like_count from database and get save counts
       const recipesWithCounts = await Promise.all(
         (data || []).map(async (recipe) => {
-          const [likeResult, saveResult] = await Promise.all([
-            supabase
-              .from('likes')
-              .select('*', { count: 'exact', head: true })
-              .eq('recipe_id', recipe.id),
-            supabase
-              .from('saves')
-              .select('*', { count: 'exact', head: true })
-              .eq('recipe_id', recipe.id)
-          ]);
+          const saveResult = await supabase
+            .from('saves')
+            .select('*', { count: 'exact', head: true })
+            .eq('recipe_id', recipe.id);
 
           return {
             ...recipe,
-            like_count: likeResult.count || 0,
+            like_count: recipe.like_count || 0,
             save_count: saveResult.count || 0
           };
         })

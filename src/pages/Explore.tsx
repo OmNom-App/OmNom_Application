@@ -28,10 +28,12 @@ interface Recipe {
   cook_time: number;
   difficulty: 'Easy' | 'Medium' | 'Hard';
   tags: string[];
+  cuisine: string;
   image_url: string | null;
   author_id: string;
   is_remix: boolean;
   created_at: string;
+  like_count: number;
   profiles?: {
     display_name: string;
     avatar_url: string | null;
@@ -51,13 +53,22 @@ export function Explore() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [allRecipes, setAllRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
+  const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
-  const [sortBy, setSortBy] = useState<'newest' | 'popular' | 'quickest'>('newest');
+  const [sortBy, setSortBy] = useState<'created_desc' | 'created_asc' | 'popular' | 'quickest'>('created_desc');
   const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState<Filters>({
+  const [filterInputs, setFilterInputs] = useState<Filters>({
+    dietary: [],
+    cookTime: '',
+    difficulty: '',
+    cuisine: '',
+    ingredients: ''
+  });
+  const [appliedFilters, setAppliedFilters] = useState<Filters>({
     dietary: [],
     cookTime: '',
     difficulty: '',
@@ -66,6 +77,26 @@ export function Explore() {
   });
 
   const ITEMS_PER_PAGE = 12;
+
+  // Helper function to filter recipes by ingredients
+  const filterRecipesByIngredients = (recipes: Recipe[], ingredientFilter: string): Recipe[] => {
+    if (!ingredientFilter.trim()) return recipes;
+    
+    const ingredientList = ingredientFilter
+      .split(',')
+      .map(ingredient => ingredient.trim().toLowerCase())
+      .filter(ingredient => ingredient.length > 0);
+    
+    if (ingredientList.length === 0) return recipes;
+    
+    return recipes.filter(recipe => {
+      return ingredientList.some(searchIngredient => {
+        return recipe.ingredients.some(recipeIngredient => 
+          recipeIngredient.toLowerCase().includes(searchIngredient)
+        );
+      });
+    });
+  };
 
   // Update URL when search query changes
   useEffect(() => {
@@ -76,10 +107,11 @@ export function Explore() {
     }
   }, [searchQuery, setSearchParams]);
 
-  // Update search query when URL changes
+  // Sync URL parameters to state on mount and URL changes
   useEffect(() => {
     const urlQuery = searchParams.get('q');
     if (urlQuery !== searchQuery) {
+      setSearchInput(urlQuery || '');
       setSearchQuery(urlQuery || '');
     }
   }, [searchParams]);
@@ -90,7 +122,7 @@ export function Explore() {
       console.log('🔍 Explore: Auth loading finished, loading recipes...');
       loadRecipes(true);
     }
-  }, [sortBy, filters, searchQuery, authLoading]);
+  }, [sortBy, appliedFilters, searchQuery, authLoading]);
 
   // Debug auth state changes
   useEffect(() => {
@@ -102,7 +134,7 @@ export function Explore() {
   }, [user, authLoading, recipes.length]);
 
   const loadRecipes = async (reset = false) => {
-    console.log('🔍 Loading recipes...', { reset, page, searchQuery, filters, sortBy });
+    console.log('🔍 Loading recipes...', { reset, page, searchQuery, appliedFilters, sortBy });
     
     // Don't reload if we already have recipes and auth is just refreshing
     if (!reset && recipes.length > 0 && authLoading) {
@@ -128,83 +160,105 @@ export function Explore() {
       query = query.or(`title.ilike.%${searchQuery}%,tags.cs.{${searchQuery}}`);
     }
 
-    // Apply ingredient filter
-    if (filters.ingredients) {
-      query = query.or(`ingredients.cs.{${filters.ingredients}}`);
-    }
+    // Note: Ingredient filtering will be applied client-side after fetching
+    // to allow for flexible matching of ingredient names within full ingredient strings
 
     // Apply dietary filters
-    if (filters.dietary.length > 0) {
-      query = query.overlaps('dietary', filters.dietary);
+    if (appliedFilters.dietary.length > 0) {
+      query = query.overlaps('dietary', appliedFilters.dietary);
     }
 
     // Apply difficulty filter
-    if (filters.difficulty) {
-      query = query.eq('difficulty', filters.difficulty);
+    if (appliedFilters.difficulty) {
+      query = query.eq('difficulty', appliedFilters.difficulty);
     }
 
     // Apply cook time filter
-    if (filters.cookTime) {
-      const maxTime = parseInt(filters.cookTime);
+    if (appliedFilters.cookTime) {
+      const maxTime = parseInt(appliedFilters.cookTime);
       query = query.lte('cook_time', maxTime);
     }
 
     // Apply cuisine filter
-    if (filters.cuisine) {
-      query = query.eq('cuisine', filters.cuisine);
+    if (appliedFilters.cuisine) {
+      query = query.eq('cuisine', appliedFilters.cuisine);
     }
 
     // Apply sorting
     switch (sortBy) {
-      case 'newest':
+      case 'created_desc':
         query = query.order('created_at', { ascending: false });
+        break;
+      case 'created_asc':
+        query = query.order('created_at', { ascending: true });
         break;
       case 'quickest':
         query = query.order('cook_time', { ascending: true });
         break;
       case 'popular':
-        // For popular sorting, we'll fetch all recipes and sort by like count
-        // This is a temporary solution - in production, you'd want a more efficient approach
-        query = query.order('created_at', { ascending: false });
+        // Use the like_count column for efficient popular sorting
+        query = query.order('like_count', { ascending: false });
         break;
     }
 
-    console.log('🔍 Executing query with range:', currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE - 1);
-    
-    let { data, error } = await query
-      .range(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE - 1);
-
-    // If sorting by popular, fetch like counts and sort
-    if (sortBy === 'popular' && data && data.length > 0) {
-      const recipesWithLikes = await Promise.all(
-        data.map(async (recipe) => {
-          const { count: likeCount } = await supabase
-            .from('likes')
-            .select('*', { count: 'exact', head: true })
-            .eq('recipe_id', recipe.id);
-          
-          return {
-            ...recipe,
-            like_count: likeCount || 0
-          };
-        })
-      );
+    // If we have ingredient filters, fetch all recipes for client-side filtering
+    if (appliedFilters.ingredients && appliedFilters.ingredients.trim()) {
+      console.log('🔍 Fetching all recipes for client-side ingredient filtering');
+      const { data: allData, error: allError } = await query;
       
-      // Sort by like count (most to least)
-      data = recipesWithLikes.sort((a, b) => (b.like_count || 0) - (a.like_count || 0));
-    }
-
-    if (error) {
-      console.error('❌ Error loading recipes:', error);
-    } else {
-      console.log('✅ Recipes loaded:', data?.length || 0, 'recipes');
+      if (allError) {
+        console.error('❌ Error loading all recipes:', allError);
+        return;
+      }
+      
+      console.log('✅ All recipes loaded:', allData?.length || 0, 'recipes');
+      
+      // Apply client-side ingredient filtering
+      const filteredRecipes = filterRecipesByIngredients(allData || [], appliedFilters.ingredients);
+      
+      // Apply pagination to filtered results
+      const startIndex = currentPage * ITEMS_PER_PAGE;
+      const endIndex = startIndex + ITEMS_PER_PAGE;
+      const paginatedRecipes = filteredRecipes.slice(startIndex, endIndex);
+      
       if (reset) {
-        setRecipes(data || []);
+        setAllRecipes(filteredRecipes);
+        setRecipes(paginatedRecipes);
         setPage(0);
       } else {
-        setRecipes(prev => [...prev, ...(data || [])]);
+        // Don't update allRecipes during pagination - it should already be set
+        // Ensure no duplicates by checking recipe IDs
+        setRecipes(prev => {
+          const existingIds = new Set(prev.map(recipe => recipe.id));
+          const newRecipes = paginatedRecipes.filter(recipe => !existingIds.has(recipe.id));
+          return [...prev, ...newRecipes];
+        });
       }
-      setHasMore((data || []).length === ITEMS_PER_PAGE);
+      setHasMore(endIndex < filteredRecipes.length);
+    } else {
+      // Normal server-side pagination
+      console.log('🔍 Executing query with range:', currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE - 1);
+      
+      let { data, error } = await query
+        .range(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE - 1);
+
+      if (error) {
+        console.error('❌ Error loading recipes:', error);
+      } else {
+        console.log('✅ Recipes loaded:', data?.length || 0, 'recipes');
+        if (reset) {
+          setRecipes(data || []);
+          setPage(0);
+        } else {
+          // Ensure no duplicates by checking recipe IDs
+          setRecipes(prev => {
+            const existingIds = new Set(prev.map(recipe => recipe.id));
+            const newRecipes = (data || []).filter(recipe => !existingIds.has(recipe.id));
+            return [...prev, ...newRecipes];
+          });
+        }
+        setHasMore((data || []).length === ITEMS_PER_PAGE);
+      }
     }
     
     setLoading(false);
@@ -212,14 +266,33 @@ export function Explore() {
 
   const loadMore = useCallback(() => {
     if (!loading && hasMore) {
-      setPage(prev => prev + 1);
-      loadRecipes(false);
+      // If we have ingredient filters, load more from the filtered recipes
+      if (appliedFilters.ingredients && appliedFilters.ingredients.trim()) {
+        const nextPage = page + 1;
+        const startIndex = nextPage * ITEMS_PER_PAGE;
+        const endIndex = startIndex + ITEMS_PER_PAGE;
+        const moreRecipes = allRecipes.slice(startIndex, endIndex);
+        
+        setRecipes(prev => {
+          const existingIds = new Set(prev.map(recipe => recipe.id));
+          const newRecipes = moreRecipes.filter(recipe => !existingIds.has(recipe.id));
+          return [...prev, ...newRecipes];
+        });
+        setPage(nextPage);
+        setHasMore(endIndex < allRecipes.length);
+      } else {
+        // Normal server-side pagination
+        setPage(prev => prev + 1);
+        loadRecipes(false);
+      }
     }
-  }, [loading, hasMore]);
+  }, [loading, hasMore, appliedFilters.ingredients, page]);
 
   useEffect(() => {
     const handleScroll = () => {
       if (
+        !loading &&
+        hasMore &&
         window.innerHeight + document.documentElement.scrollTop
         >= document.documentElement.offsetHeight - 1000
       ) {
@@ -229,17 +302,17 @@ export function Explore() {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [loadMore]);
+  }, [loadMore, loading, hasMore]);
 
-  const handleFilterChange = (key: keyof Filters, value: any) => {
-    setFilters(prev => ({
+  const handleFilterInputChange = (key: keyof Filters, value: any) => {
+    setFilterInputs(prev => ({
       ...prev,
       [key]: value
     }));
   };
 
   const toggleDietaryFilter = (diet: string) => {
-    setFilters(prev => ({
+    setFilterInputs(prev => ({
       ...prev,
       dietary: prev.dietary.includes(diet)
         ? prev.dietary.filter(d => d !== diet)
@@ -247,14 +320,37 @@ export function Explore() {
     }));
   };
 
+  const applyFilters = () => {
+    setAppliedFilters(filterInputs);
+    // Clear recipes state to force a fresh load
+    setRecipes([]);
+    setAllRecipes([]);
+    setPage(0);
+    setHasMore(true);
+    // Trigger a reload of recipes with the new filters
+    loadRecipes(true);
+  };
+
   const clearFilters = () => {
-    setFilters({
+    setFilterInputs({
       dietary: [],
       cookTime: '',
       difficulty: '',
       cuisine: '',
       ingredients: ''
     });
+    setAppliedFilters({
+      dietary: [],
+      cookTime: '',
+      difficulty: '',
+      cuisine: '',
+      ingredients: ''
+    });
+    setSearchInput('');
+    setSearchQuery('');
+    setSearchParams({});
+    // Trigger a reload of recipes with cleared filters
+    setTimeout(() => loadRecipes(true), 0);
   };
 
   const shareRecipe = async (recipeId: string) => {
@@ -274,8 +370,15 @@ export function Explore() {
     }
   };
 
-  const dietaryOptions = ['vegan', 'vegetarian', 'gluten-free', 'dairy-free', 'keto', 'paleo'];
-  const cuisineOptions = ['italian', 'mexican', 'asian', 'indian', 'mediterranean', 'american'];
+  const dietaryOptions = ['vegan', 'vegetarian', 'gluten-free', 'dairy-free', 'keto', 'paleo', 'pescatarian', 'other'];
+  const cuisineOptions = ['Italian', 'Mexican', 'Asian', 'Indian', 'Mediterranean', 'American', 'Other'];
+
+  // Add a clear search function
+  const clearSearch = () => {
+    setSearchInput('');
+    setSearchQuery('');
+    setSearchParams({});
+  };
 
     return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-pink-50 pt-20">
@@ -301,16 +404,28 @@ export function Explore() {
         <div className="bg-white/70 backdrop-blur-sm rounded-xl p-6 border border-orange-100 mb-8">
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search Bar */}
-            <div className="flex-1">
+            <div className="flex-1 relative">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
                   type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setSearchQuery(searchInput);
+                    }
+                  }}
                   placeholder="Search recipes, ingredients, or tags..."
                   className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
                 />
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery(searchInput)}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-orange-500 text-white px-3 py-1 rounded hover:bg-orange-600 transition-colors"
+                >
+                  Search
+                </button>
               </div>
             </div>
 
@@ -321,7 +436,8 @@ export function Explore() {
                 onChange={(e) => setSortBy(e.target.value as any)}
                 className="px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
               >
-                <option value="newest">Newest</option>
+                <option value="created_desc">Newest (Date Descending)</option>
+                <option value="created_asc">Oldest (Date Ascending)</option>
                 <option value="popular">Most Popular</option>
                 <option value="quickest">Quickest</option>
               </select>
@@ -355,7 +471,7 @@ export function Explore() {
                       <label key={diet} className="flex items-center">
                         <input
                           type="checkbox"
-                          checked={filters.dietary.includes(diet)}
+                          checked={filterInputs.dietary.includes(diet)}
                           onChange={() => toggleDietaryFilter(diet)}
                           className="rounded border-gray-300 text-orange-500 focus:ring-orange-300"
                         />
@@ -371,8 +487,8 @@ export function Explore() {
                     Max Cook Time
                   </label>
                   <select
-                    value={filters.cookTime}
-                    onChange={(e) => handleFilterChange('cookTime', e.target.value)}
+                    value={filterInputs.cookTime}
+                    onChange={(e) => handleFilterInputChange('cookTime', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
                   >
                     <option value="">Any time</option>
@@ -389,8 +505,8 @@ export function Explore() {
                     Difficulty
                   </label>
                   <select
-                    value={filters.difficulty}
-                    onChange={(e) => handleFilterChange('difficulty', e.target.value)}
+                    value={filterInputs.difficulty}
+                    onChange={(e) => handleFilterInputChange('difficulty', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
                   >
                     <option value="">Any difficulty</option>
@@ -406,8 +522,8 @@ export function Explore() {
                     Cuisine Type
                   </label>
                   <select
-                    value={filters.cuisine}
-                    onChange={(e) => handleFilterChange('cuisine', e.target.value)}
+                    value={filterInputs.cuisine}
+                    onChange={(e) => handleFilterInputChange('cuisine', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
                   >
                     <option value="">Any cuisine</option>
@@ -426,11 +542,22 @@ export function Explore() {
                   </label>
                   <input
                     type="text"
-                    value={filters.ingredients}
-                    onChange={(e) => handleFilterChange('ingredients', e.target.value)}
+                    value={filterInputs.ingredients}
+                    onChange={(e) => handleFilterInputChange('ingredients', e.target.value)}
                     placeholder="e.g., chicken, tomato"
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
                   />
+                </div>
+
+                {/* Apply Filters Button */}
+                <div className="flex items-end">
+                  <button
+                    onClick={applyFilters}
+                    className="flex items-center space-x-2 bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors"
+                  >
+                    <Filter className="w-4 h-4" />
+                    <span>Apply Filters</span>
+                  </button>
                 </div>
 
                 {/* Clear Filters */}
@@ -447,6 +574,25 @@ export function Explore() {
             </motion.div>
           )}
         </div>
+
+        {/* Search Results Header */}
+        {searchQuery && (
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Search className="w-5 h-5 text-gray-500" />
+              <span className="text-gray-600">
+                Search results for "{searchQuery}"
+              </span>
+            </div>
+            <button
+              onClick={clearSearch}
+              className="flex items-center space-x-2 text-orange-500 hover:text-orange-600 transition-colors"
+            >
+              <X className="w-4 h-4" />
+              <span>Clear Search</span>
+            </button>
+          </div>
+        )}
 
         {/* Recipe Grid */}
         <div className="pb-20">
