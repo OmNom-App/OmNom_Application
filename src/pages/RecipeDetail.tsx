@@ -92,7 +92,7 @@ function OriginalRecipeCard({ originalRecipeId }: { originalRecipeId: string }) 
       if (error) throw error;
       setOriginalRecipe(data);
     } catch (error) {
-      console.error('Error loading original recipe:', error);
+      // Silent error handling
     } finally {
       setLoading(false);
     }
@@ -216,7 +216,6 @@ export function RecipeDetail() {
       // Load interaction counts (like_count is now part of recipe data)
       await loadInteractionCounts();
     } catch (err: any) {
-      console.error('Error loading recipe:', err);
       setError('Recipe not found');
     } finally {
       setLoading(false);
@@ -243,7 +242,7 @@ export function RecipeDetail() {
       setSaveCount(saveResult.count || 0);
       setCommentCount(commentResult.count || 0);
     } catch (error) {
-      console.error('Error loading interaction counts:', error);
+      // Silent error handling
     }
   };
 
@@ -276,8 +275,6 @@ export function RecipeDetail() {
   const loadComments = async () => {
     if (!id) return;
 
-    console.log('🔍 Loading comments for recipe:', id);
-
     try {
       const { data, error } = await supabase
         .from('comments')
@@ -293,10 +290,9 @@ export function RecipeDetail() {
 
       if (error) throw error;
       
-      console.log('✅ Comments loaded:', data?.length || 0, 'comments');
       setComments(data || []);
     } catch (error) {
-      console.error('❌ Error loading comments:', error);
+      // Silent error handling
     }
   };
 
@@ -322,7 +318,7 @@ export function RecipeDetail() {
       // Always refresh the recipe after like/unlike to get the latest like_count
       await loadRecipe();
     } catch (error) {
-      console.error('Error toggling like:', error);
+      // Silent error handling
     }
   };
 
@@ -348,7 +344,7 @@ export function RecipeDetail() {
       }
       setIsSaved(!isSaved);
     } catch (error) {
-      console.error('Error toggling save:', error);
+      // Silent error handling
     }
   };
 
@@ -363,7 +359,7 @@ export function RecipeDetail() {
           url: recipeUrl
         });
       } catch (error) {
-        console.log('Error sharing:', error);
+        // Silent error handling
       }
     } else {
       navigator.clipboard.writeText(recipeUrl);
@@ -379,7 +375,6 @@ export function RecipeDetail() {
       return;
     }
 
-    console.log('🔍 Adding comment...', { userId: user.id, recipeId: id, content: newComment.trim() });
     setCommentLoading(true);
 
     try {
@@ -393,12 +388,11 @@ export function RecipeDetail() {
 
       if (error) throw error;
 
-      console.log('✅ Comment added successfully');
       setNewComment('');
       setCommentCount(prev => prev + 1);
       await loadComments();
     } catch (error) {
-      console.error('❌ Error adding comment:', error);
+      // Silent error handling
     } finally {
       setCommentLoading(false);
     }
@@ -407,7 +401,7 @@ export function RecipeDetail() {
   const handleDeleteComment = async (commentId: string) => {
     if (!user) return;
 
-    console.log('🔍 Deleting comment...', { commentId, userId: user.id });
+
 
     try {
       const { error } = await supabase
@@ -418,11 +412,10 @@ export function RecipeDetail() {
 
       if (error) throw error;
 
-      console.log('✅ Comment deleted successfully');
       setCommentCount(prev => prev - 1);
       await loadComments();
     } catch (error) {
-      console.error('❌ Error deleting comment:', error);
+      // Silent error handling
     }
   };
 
@@ -468,7 +461,6 @@ export function RecipeDetail() {
 
       navigate('/explore');
     } catch (error) {
-      console.error('Error deleting recipe:', error);
       setError('Failed to delete recipe.');
     }
   };

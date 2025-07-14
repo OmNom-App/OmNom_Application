@@ -24,21 +24,37 @@ function AppContent() {
           <Route path="/explore" element={<Explore />} />
           <Route path="/login" element={<Auth mode="login" />} />
           <Route path="/signup" element={<Auth mode="signup" />} />
-          <Route path="/create" element={<CreateRecipe />} />
+          <Route path="/create" element={
+            <ProtectedRoute>
+              <CreateRecipe />
+            </ProtectedRoute>
+          } />
           <Route path="/edit-recipe/:id" element={
             <ProtectedRoute>
               <EditRecipe />
             </ProtectedRoute>
           } />
           <Route path="/recipe/:id" element={<RecipeDetail />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/profile/:userId" element={<Profile />} />
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } />
+          <Route path="/profile/:userId" element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } />
           <Route path="/settings" element={
             <ProtectedRoute>
               <Settings />
             </ProtectedRoute>
           } />
-          <Route path="/saved" element={<Saved />} />
+          <Route path="/saved" element={
+            <ProtectedRoute>
+              <Saved />
+            </ProtectedRoute>
+          } />
           <Route path="/pricing" element={<Pricing />} />
         </Routes>
       </div>

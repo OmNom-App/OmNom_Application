@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthContext } from '../context/AuthContext';
-import { ParticleBackground } from '../components/ParticleBackground';
+
 import { Modal } from '../components/Modal';
 
 interface Recipe {
@@ -54,7 +54,6 @@ export function Home() {
 
   const loadFeaturedRecipes = async () => {
     setLoading(true);
-    console.log('🔍 Loading featured recipes...');
     
     const { data, error } = await supabase
       .from('recipes')
@@ -69,9 +68,8 @@ export function Home() {
       .limit(6);
 
     if (error) {
-      console.error('❌ Error loading featured recipes:', error);
+      // Silent error handling
     } else {
-      console.log('✅ Featured recipes loaded:', data?.length || 0, 'recipes');
       setFeaturedRecipes(data || []);
     }
     
@@ -136,8 +134,6 @@ export function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-pink-50 relative">
-      <ParticleBackground />
-      
       {/* Hero Section */}
       <div className="relative z-10 pt-20 pb-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto text-center">
@@ -426,11 +422,11 @@ export function Home() {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className="bg-white rounded-xl p-6 shadow-lg border border-gray-100"
+                className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 flex flex-col h-full"
               >
                 <Quote className="w-8 h-8 text-orange-500 mb-4" />
-                <p className="text-gray-600 mb-6 italic">"{testimonial.content}"</p>
-                <div className="flex items-center">
+                <p className="text-gray-600 mb-6 italic flex-grow">"{testimonial.content}"</p>
+                <div className="flex items-center mt-auto">
                   <img
                     src={testimonial.avatar}
                     alt={testimonial.name}
