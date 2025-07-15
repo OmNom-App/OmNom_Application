@@ -612,6 +612,23 @@ export function Explore() {
                   <RecipeCard 
                     key={recipe.id} 
                     recipe={recipe}
+                    onLike={async (recipeId, newLikeCount) => {
+                      // Fetch the latest recipe from Supabase
+                      const { data: updatedRecipe } = await supabase
+                        .from('recipes')
+                        .select('*')
+                        .eq('id', recipeId)
+                        .single();
+                      if (updatedRecipe) {
+                        setRecipes(prev => 
+                          prev.map(r => 
+                            r.id === recipeId 
+                              ? { ...r, ...updatedRecipe }
+                              : r
+                          )
+                        );
+                      }
+                    }}
                     onShare={() => shareRecipe(recipe.id)}
                   />
                 ))}

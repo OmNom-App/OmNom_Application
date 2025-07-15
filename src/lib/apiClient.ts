@@ -32,10 +32,10 @@ class ApiClient {
     }
 
     if (!response.ok) {
-      const errorText = await response.text();
+      // Don't expose error details in production
       return { 
         status, 
-        error: errorText || `HTTP ${status} Error` 
+        error: `Request failed with status ${status}` 
       };
     }
 

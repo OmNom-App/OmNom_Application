@@ -315,7 +315,7 @@ export function Profile() {
         .upload(filePath, avatarFile);
 
       if (uploadError) {
-        throw new Error('Failed to upload avatar: ' + uploadError.message);
+        throw new Error('Failed to upload avatar');
       }
 
       // Get public URL
@@ -338,7 +338,7 @@ export function Profile() {
         .eq('id', user.id);
 
       if (updateError) {
-        throw new Error('Failed to update profile: ' + updateError.message);
+        throw new Error('Failed to update profile');
       }
 
       // Update local state only if everything succeeded
@@ -629,7 +629,37 @@ export function Profile() {
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {currentRecipes.map((recipe) => (
-                    <RecipeCard key={recipe.id} recipe={recipe} />
+                    <RecipeCard 
+                      key={recipe.id} 
+                      recipe={recipe}
+                      onLike={async (recipeId, newLikeCount) => {
+                        // Fetch the latest recipe from Supabase
+                        const { data: updatedRecipe } = await supabase
+                          .from('recipes')
+                          .select('*')
+                          .eq('id', recipeId)
+                          .single();
+                        if (updatedRecipe) {
+                          if (activeTab === 'created') {
+                            setCreatedRecipes(prev => 
+                              prev.map(r => 
+                                r.id === recipeId 
+                                  ? { ...r, ...updatedRecipe }
+                                  : r
+                              )
+                            );
+                          } else {
+                            setRemixedRecipes(prev => 
+                              prev.map(r => 
+                                r.id === recipeId 
+                                  ? { ...r, ...updatedRecipe }
+                                  : r
+                              )
+                            );
+                          }
+                        }
+                      }}
+                    />
                   ))}
                 </div>
 

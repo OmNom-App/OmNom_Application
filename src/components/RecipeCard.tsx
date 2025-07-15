@@ -5,6 +5,7 @@ import { Heart, Bookmark, Clock, Users, Star, Share2, ChefHat } from 'lucide-rea
 import { supabase } from '../lib/supabase';
 import { useAuthContext } from '../context/AuthContext';
 import { Modal } from './Modal';
+import { toggleRecipeLike } from '../lib/likeUtils';
 
 interface Recipe {
   id: string;
@@ -27,7 +28,7 @@ interface Recipe {
 
 interface RecipeCardProps {
   recipe: Recipe;
-  onLike?: (recipeId: string, isLiked: boolean) => void;
+  onLike?: (recipeId: string, newLikeCount: number) => void;
   onSave?: (recipeId: string, isSaved: boolean) => void;
   onShare?: () => void;
 }
@@ -77,8 +78,6 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
     setIsSaved(!!data);
   };
 
-
-
   const handleLike = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -89,22 +88,14 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
       return;
     }
 
-    if (isLiked) {
-      await supabase
-        .from('likes')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('recipe_id', recipe.id);
-      setLikeCount(prev => prev - 1);
-    } else {
-      await supabase
-        .from('likes')
-        .insert({ user_id: user.id, recipe_id: recipe.id });
-      setLikeCount(prev => prev + 1);
+    try {
+      const { newLikeCount, isLiked } = await toggleRecipeLike(recipe.id, user.id);
+      setLikeCount(newLikeCount);
+      setIsLiked(isLiked);
+      onLike?.(recipe.id, newLikeCount);
+    } catch (error) {
+      // Silent error handling for production
     }
-    
-    setIsLiked(!isLiked);
-    onLike?.(recipe.id, !isLiked);
   };
 
   const handleSave = async (e: React.MouseEvent) => {
@@ -242,9 +233,7 @@ export function RecipeCard({ recipe, onLike, onSave, onShare }: RecipeCardProps)
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleLike}
-                className={`flex items-center space-x-1 p-2 rounded-lg ${
-                  isLiked ? 'text-red-500' : 'text-gray-400'
-                } hover:text-red-500 transition-colors`}
+                className={`flex items-center space-x-1 p-2 rounded-lg text-red-500 hover:text-red-500 transition-colors`}
               >
                 <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
                 <span className="text-xs font-medium">{likeCount}</span>

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthContext } from '../context/AuthContext';
+import { toggleRecipeLike } from '../lib/likeUtils';
 
 import { format } from 'date-fns';
 
@@ -213,7 +214,10 @@ export function RecipeDetail() {
       if (error) throw error;
       setRecipe(data);
 
-      // Load interaction counts (like_count is now part of recipe data)
+      // Set like count from the loaded recipe data
+      setLikeCount(data.like_count || 0);
+
+      // Load other interaction counts
       await loadInteractionCounts();
     } catch (err: any) {
       setError('Recipe not found');
@@ -237,8 +241,6 @@ export function RecipeDetail() {
           .eq('recipe_id', id)
       ]);
 
-      // Use like_count from recipe data instead of counting likes table
-      setLikeCount(recipe?.like_count || 0);
       setSaveCount(saveResult.count || 0);
       setCommentCount(commentResult.count || 0);
     } catch (error) {
@@ -297,28 +299,30 @@ export function RecipeDetail() {
   };
 
   const handleLike = async () => {
-    if (!user || !id) {
+    if (!user) {
       navigate('/login');
       return;
     }
 
+    if (!id) return;
+
     try {
-      if (isLiked) {
-        await supabase
-          .from('likes')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('recipe_id', id);
-      } else {
-        await supabase
-          .from('likes')
-          .insert({ user_id: user.id, recipe_id: id });
+      const { newLikeCount, isLiked } = await toggleRecipeLike(id, user.id);
+      setLikeCount(newLikeCount);
+      setIsLiked(isLiked);
+      
+      // Refresh recipe data to ensure consistency
+      const { data: updatedRecipe } = await supabase
+        .from('recipes')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (updatedRecipe) {
+        setRecipe({ ...recipe!, ...updatedRecipe });
       }
-      setIsLiked(!isLiked);
-      // Always refresh the recipe after like/unlike to get the latest like_count
-      await loadRecipe();
     } catch (error) {
-      // Silent error handling
+      // Silent error handling for production
     }
   };
 
@@ -451,11 +455,7 @@ export function RecipeDetail() {
         .eq('author_id', user.id);
 
       if (error) {
-        if (error.code === 'PGRST301' || error.message.includes('permission')) {
-          setError('You do not have permission to delete this recipe');
-        } else {
-          setError('Failed to delete recipe');
-        }
+        setError('Failed to delete recipe');
         return;
       }
 
@@ -686,7 +686,7 @@ export function RecipeDetail() {
                     }`}
                   >
                     <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
-                    <span>{recipe.like_count}</span>
+                    <span>{likeCount}</span>
                   </motion.button>
 
                   <motion.button

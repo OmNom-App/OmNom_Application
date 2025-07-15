@@ -44,7 +44,7 @@ export function Auth({ mode }: AuthProps) {
         : await signUp(formData.email, formData.password, formData.fullName);
 
       if (error) {
-        setError(error.message);
+        setError('Authentication failed. Please check your credentials.');
       } else {
         // Redirect will be handled by useAuthRedirect hook
       }

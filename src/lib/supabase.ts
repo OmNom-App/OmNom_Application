@@ -4,7 +4,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+  throw new Error('Configuration error');
 }
 
 // Create Supabase client with standard configuration
@@ -113,6 +113,7 @@ export type Database = {
           is_remix: boolean;
           created_at: string;
           updated_at: string;
+          like_count: number;
         };
         Insert: {
           id?: string;
@@ -131,6 +132,7 @@ export type Database = {
           is_remix?: boolean;
           created_at?: string;
           updated_at?: string;
+          like_count?: number;
         };
         Update: {
           id?: string;
@@ -147,26 +149,7 @@ export type Database = {
           is_remix?: boolean;
           created_at?: string;
           updated_at?: string;
-        };
-      };
-      likes: {
-        Row: {
-          id: string;
-          user_id: string;
-          recipe_id: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          recipe_id: string;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          recipe_id?: string;
-          created_at?: string;
+          like_count?: number;
         };
       };
       saves: {
@@ -229,6 +212,26 @@ export type Database = {
           id?: string;
           follower_id?: string;
           following_id?: string;
+          created_at?: string;
+        };
+      };
+      likes: {
+        Row: {
+          id: string;
+          user_id: string;
+          recipe_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          recipe_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          recipe_id?: string;
           created_at?: string;
         };
       };
