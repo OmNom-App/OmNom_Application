@@ -163,7 +163,8 @@ export function Saved() {
             image_url,
             author_id,
             is_remix,
-            created_at
+            created_at,
+            like_count
           )
         `)
         .eq('user_id', user.id)
@@ -181,26 +182,27 @@ export function Saved() {
             return null;
           }
           
-          return {
-            id: save.id,
-            recipe_id: save.recipe_id,
-            created_at: save.created_at,
-            recipes: {
-              id: recipe.id,
-              title: recipe.title,
-              ingredients: recipe.ingredients,
-              instructions: recipe.instructions,
-              prep_time: recipe.prep_time,
-              cook_time: recipe.cook_time,
-              difficulty: recipe.difficulty,
-              tags: recipe.tags,
-              image_url: recipe.image_url,
-              author_id: recipe.author_id,
-              is_remix: recipe.is_remix,
-              created_at: recipe.created_at,
-              profiles: undefined // We'll fetch this separately
-            }
-          };
+                      return {
+              id: save.id,
+              recipe_id: save.recipe_id,
+              created_at: save.created_at,
+              recipes: {
+                id: recipe.id,
+                title: recipe.title,
+                ingredients: recipe.ingredients,
+                instructions: recipe.instructions,
+                prep_time: recipe.prep_time,
+                cook_time: recipe.cook_time,
+                difficulty: recipe.difficulty,
+                tags: recipe.tags,
+                image_url: recipe.image_url,
+                author_id: recipe.author_id,
+                is_remix: recipe.is_remix,
+                created_at: recipe.created_at,
+                like_count: recipe.like_count || 0,
+                profiles: undefined // We'll fetch this separately
+              }
+            };
         })
         .filter(Boolean) as SavedRecipe[];
       
@@ -736,6 +738,29 @@ export function Saved() {
                       <div className="relative">
                         <RecipeCard 
                           recipe={save.recipes}
+                          onLike={async (recipeId, newLikeCount) => {
+                            // Fetch the latest recipe from Supabase
+                            const { data: updatedRecipe } = await supabase
+                              .from('recipes')
+                              .select('*')
+                              .eq('id', recipeId)
+                              .single();
+                            if (updatedRecipe) {
+                              setSavedRecipes(prev => 
+                                prev.map(saveItem => 
+                                  saveItem.recipes.id === recipeId 
+                                    ? { 
+                                        ...saveItem, 
+                                        recipes: { 
+                                          ...saveItem.recipes, 
+                                          ...updatedRecipe 
+                                        } 
+                                      }
+                                    : saveItem
+                                )
+                              );
+                            }
+                          }}
                           onSave={(recipeId, isSaved) => {
                             if (!isSaved) {
                               // Recipe was unsaved, remove it from the list

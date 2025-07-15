@@ -70,7 +70,7 @@ export function EditRecipe() {
       if (imageFile) {
         imageUrl = await uploadImage();
         if (!imageUrl) {
-          throw new Error('Failed to upload image');
+          throw new Error('Upload failed');
         }
       }
 
@@ -96,11 +96,7 @@ export function EditRecipe() {
         .single();
 
       if (error) {
-        if (error.code === 'PGRST301' || error.message.includes('permission')) {
-          setError('You do not have permission to edit this recipe');
-        } else {
-          setError('Failed to update recipe');
-        }
+        setError('Failed to update recipe');
         return;
       }
 
@@ -146,11 +142,7 @@ export function EditRecipe() {
         .select();
 
       if (error) {
-        if (error.code === 'PGRST301' || error.message.includes('permission')) {
-          setError('You do not have permission to delete this recipe');
-        } else {
-          setError('Failed to delete recipe');
-        }
+        setError('Failed to delete recipe');
         return;
       }
 

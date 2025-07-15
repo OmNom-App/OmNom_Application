@@ -59,7 +59,7 @@ export function CreateRecipe() {
       if (imageFile) {
         imageUrl = await uploadImage();
         if (!imageUrl) {
-          throw new Error('Failed to upload image');
+          throw new Error('Upload failed');
         }
       }
 
@@ -92,7 +92,7 @@ export function CreateRecipe() {
         .single();
 
       if (recipeError) {
-        throw new Error(`Recipe creation failed: ${recipeError.message}`);
+        throw new Error('Recipe creation failed');
       }
       setSuccess('Recipe created successfully!');
 
