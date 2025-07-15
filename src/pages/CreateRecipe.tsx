@@ -19,8 +19,8 @@ export function CreateRecipe() {
   
   const [formData, setFormData] = useState({
     title: isRemix ? `${originalRecipe?.title} (Remix)` : '',
-    prep_time: isRemix ? originalRecipe?.prep_time || 15 : 15,
-    cook_time: isRemix ? originalRecipe?.cook_time || 30 : 30,
+    prep_time: isRemix ? String(originalRecipe?.prep_time || 15) : '15',
+    cook_time: isRemix ? String(originalRecipe?.cook_time || 30) : '30',
     difficulty: 'Easy' as 'Easy' | 'Medium' | 'Hard',
     ingredients: isRemix ? [...(originalRecipe?.ingredients || [''])] : [''],
     instructions: isRemix ? [...(originalRecipe?.instructions || [''])] : [''],
@@ -49,6 +49,18 @@ export function CreateRecipe() {
       return;
     }
 
+    // Validate required fields
+    const prepTimeNum = parseInt(formData.prep_time, 10);
+    const cookTimeNum = parseInt(formData.cook_time, 10);
+    if (!formData.prep_time || isNaN(prepTimeNum) || prepTimeNum <= 0) {
+      setError('Prep time must be greater than 0');
+      return;
+    }
+    if (!formData.cook_time || isNaN(cookTimeNum) || cookTimeNum <= 0) {
+      setError('Cook time must be greater than 0');
+      return;
+    }
+
     setLoading(true);
     setError('');
     setSuccess('');
@@ -66,8 +78,8 @@ export function CreateRecipe() {
       // Prepare recipe data - NO PROFILE CHECK
       const recipeData = {
         title: formData.title.trim() || 'Untitled Recipe',
-        prep_time: formData.prep_time || 0,
-        cook_time: formData.cook_time || 0,
+        prep_time: prepTimeNum,
+        cook_time: cookTimeNum,
         difficulty: formData.difficulty,
         ingredients: formData.ingredients.filter(i => i.trim()).length > 0 
           ? formData.ingredients.filter(i => i.trim()) 
@@ -306,13 +318,14 @@ export function CreateRecipe() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Clock className="w-4 h-4 inline mr-1" />
-                  Prep Time (minutes)
+                  Prep Time (minutes) *
                 </label>
                 <input
                   type="number"
                   min="0"
+                  required
                   value={formData.prep_time}
-                  onChange={(e) => setFormData(prev => ({ ...prev, prep_time: parseInt(e.target.value) || 0 }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, prep_time: e.target.value }))}
                   className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
                 />
               </div>
@@ -320,13 +333,14 @@ export function CreateRecipe() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Clock className="w-4 h-4 inline mr-1" />
-                  Cook Time (minutes)
+                  Cook Time (minutes) *
                 </label>
                 <input
                   type="number"
                   min="0"
+                  required
                   value={formData.cook_time}
-                  onChange={(e) => setFormData(prev => ({ ...prev, cook_time: parseInt(e.target.value) || 0 }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, cook_time: e.target.value }))}
                   className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
                 />
               </div>

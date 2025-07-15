@@ -22,8 +22,8 @@ export function EditRecipe() {
   
   const [formData, setFormData] = useState({
     title: '',
-    prep_time: 15,
-    cook_time: 30,
+    prep_time: '15',
+    cook_time: '30',
     difficulty: 'Easy' as 'Easy' | 'Medium' | 'Hard',
     ingredients: [''],
     instructions: [''],
@@ -41,8 +41,8 @@ export function EditRecipe() {
     if (recipe) {
       setFormData({
         title: recipe.title || '',
-        prep_time: recipe.prep_time || 15,
-        cook_time: recipe.cook_time || 30,
+        prep_time: recipe.prep_time ? String(recipe.prep_time) : '',
+        cook_time: recipe.cook_time ? String(recipe.cook_time) : '',
         difficulty: recipe.difficulty || 'Easy',
         ingredients: recipe.ingredients && recipe.ingredients.length > 0 ? recipe.ingredients : [''],
         instructions: recipe.instructions && recipe.instructions.length > 0 ? recipe.instructions : [''],
@@ -57,6 +57,18 @@ export function EditRecipe() {
     
     if (!user || !id) {
       setError('You must be logged in to edit recipes');
+      return;
+    }
+
+    // Validate required fields
+    const prepTimeNum = parseInt(formData.prep_time, 10);
+    const cookTimeNum = parseInt(formData.cook_time, 10);
+    if (!formData.prep_time || isNaN(prepTimeNum) || prepTimeNum <= 0) {
+      setError('Prep time must be greater than 0');
+      return;
+    }
+    if (!formData.cook_time || isNaN(cookTimeNum) || cookTimeNum <= 0) {
+      setError('Cook time must be greater than 0');
       return;
     }
 
@@ -76,8 +88,8 @@ export function EditRecipe() {
 
       const recipeData = {
         title: formData.title.trim() || 'Untitled Recipe',
-        prep_time: formData.prep_time || 0,
-        cook_time: formData.cook_time || 0,
+        prep_time: prepTimeNum,
+        cook_time: cookTimeNum,
         difficulty: formData.difficulty,
         ingredients: formData.ingredients.filter(i => i.trim()),
         instructions: formData.instructions.filter(i => i.trim()),
@@ -365,13 +377,14 @@ export function EditRecipe() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label htmlFor="prep_time" className="block text-sm font-medium text-gray-700 mb-2">
-                    Prep Time (minutes)
+                    Prep Time (minutes) *
                   </label>
                   <input
                     type="number"
                     id="prep_time"
+                    required
                     value={formData.prep_time}
-                    onChange={(e) => setFormData(prev => ({ ...prev, prep_time: parseInt(e.target.value) || 0 }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, prep_time: e.target.value }))}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     min="0"
                   />
@@ -379,13 +392,14 @@ export function EditRecipe() {
 
                 <div>
                   <label htmlFor="cook_time" className="block text-sm font-medium text-gray-700 mb-2">
-                    Cook Time (minutes)
+                    Cook Time (minutes) *
                   </label>
                   <input
                     type="number"
                     id="cook_time"
+                    required
                     value={formData.cook_time}
-                    onChange={(e) => setFormData(prev => ({ ...prev, cook_time: parseInt(e.target.value) || 0 }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, cook_time: e.target.value }))}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     min="0"
                   />
